@@ -2,10 +2,14 @@ import 'package:enfr/string_collector.dart';
 import 'package:flutter/material.dart';
 
 class ChatReply extends StatefulWidget {
-  const ChatReply(
-      {super.key, required this.reply, this.onCompleted = _defaultOnCompleted});
+  const ChatReply({
+    super.key, 
+    required this.reply, 
+    this.textAlign,
+    this.onCompleted = _defaultOnCompleted});
 
   final Stream<String> reply;
+  final TextAlign? textAlign;
   final ValueChanged<String> onCompleted;
   //final ValueChanged<String>() onCompleted;
 
@@ -27,10 +31,12 @@ class _ChatReplyState extends State<ChatReply> {
 
   @override
   Widget build(BuildContext context) {
-    return Card.outlined(
-      elevation: 2.0,
+    return Card(
+      elevation: 0.0,
+      color: Colors.transparent,
       child: StringCollector(
         stream: widget.reply,
+        textAlign: widget.textAlign,
         onCompleted: widget.onCompleted,
       ),
     );

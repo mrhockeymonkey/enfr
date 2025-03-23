@@ -2,6 +2,20 @@
 
 A new Flutter project.
 
+## TODO
+
+- Refactor into pages, widgets, services
+- Make any text selectable so it can bee google translated
+- Include Canadian French translation
+- Work on agent prompts
+- Handle secrets safely
+
+## Release
+
+```bash
+flutter run --release
+```
+
 ## Getting Started
 
 This project is a starting point for a Flutter application.

@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 
 class StringCollector extends StreamBuilderBase<String, List<String>> {
-  const StringCollector({super.key, required super.stream, required this.onCompleted});
+  const StringCollector(
+      {super.key,
+      required super.stream,
+      required this.onCompleted,
+      this.textAlign});
 
   final ValueChanged<String> onCompleted;
+  final TextAlign? textAlign;
 
   @override
   List<String> initial() => <String>[];
@@ -30,9 +35,10 @@ class StringCollector extends StreamBuilderBase<String, List<String>> {
   List<String> afterDisconnected(List<String> current) => current;
 
   @override
-  Widget build(BuildContext context, List<String> currentSummary) => Text(
+  Widget build(BuildContext context, List<String> currentSummary) => SelectableText(
         currentSummary.join(),
         textDirection: TextDirection.ltr,
-        textAlign: TextAlign.center,
+        textAlign: textAlign,
+        style: Theme.of(context).textTheme.bodyLarge,
       );
 }
