@@ -1,5 +1,6 @@
 import 'package:enfr/chat_reply.dart';
 import 'package:enfr/pages/ask_chat/ask_page.dart';
+import 'package:enfr/pages/verbs/verbs_page.dart';
 import 'package:flutter/material.dart';
 import 'package:mistralai_client_dart/mistralai_client_dart.dart';
 
@@ -34,9 +35,9 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
+      //home: const VerbsPage(),
       home: const AskChatPage(),
+      routes: {'/verbs': (context) => VerbsPage()},
     );
   }
 }
-
-

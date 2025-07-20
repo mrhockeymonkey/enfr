@@ -136,6 +136,17 @@ class _AskChatPageState extends State<AskChatPage> {
         // the App.build method, and use it to set our appbar title.
         title: Text("Traduire"),
       ),
+      drawer: Drawer(
+        child: ListView(
+          children: [
+            DrawerHeader(child: Text("Header")),
+            ListTile(
+              title: Text("Verbs"),
+              onTap: () => Navigator.of(context).pushNamed("/verbs"),
+            ),
+          ],
+        ),
+      ),
       body: Center(
         // Center is a layout widget. It takes a single child and positions it
         // in the middle of the parent.
