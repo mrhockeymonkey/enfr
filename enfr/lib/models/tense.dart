@@ -14,4 +14,18 @@ class Tense {
   final String? nous;
   final String? vous;
   final String? ils;
+
+  static Tense? fromStr(String? str) {
+    if (str == null) return null;
+    List<String> parts = str.split('|');
+
+    return Tense(
+      je: parts.elementAtOrNull(0),
+      tu: parts.elementAtOrNull(1),
+      il: parts.elementAtOrNull(2),
+      nous: parts.elementAtOrNull(3),
+      vous: parts.elementAtOrNull(4),
+      ils: parts.elementAtOrNull(5),
+    );
+  }
 }

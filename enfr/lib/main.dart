@@ -1,11 +1,20 @@
 import 'package:enfr/chat_reply.dart';
+import 'package:enfr/data/verb-provider.dart';
 import 'package:enfr/pages/ask_chat/ask_page.dart';
 import 'package:enfr/pages/verbs/verbs_page.dart';
 import 'package:flutter/material.dart';
 import 'package:mistralai_client_dart/mistralai_client_dart.dart';
+import 'package:provider/provider.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (context) => VerbProvider()),
+      ],
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {

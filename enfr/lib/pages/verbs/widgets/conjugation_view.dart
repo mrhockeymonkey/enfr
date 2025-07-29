@@ -12,6 +12,7 @@ class ConjugationView extends StatelessWidget {
 
   final Tense? tense;
   final String name;
+  static const double padding = 2.0;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -19,15 +20,39 @@ class ConjugationView extends StatelessWidget {
           children: [
             Align(
               alignment: Alignment.centerLeft,
-              child: Text(name),
+              child: Padding(
+                padding: EdgeInsets.all(6),
+                child: Text(name),
+              ),
             ),
-            const Divider(),
-            HighlightedText(value: tense?.je ?? ""),
-            HighlightedText(value: tense?.tu ?? ""),
-            HighlightedText(value: tense?.il ?? ""),
-            HighlightedText(value: tense?.nous ?? ""),
-            HighlightedText(value: tense?.vous ?? ""),
-            HighlightedText(value: tense?.ils ?? ""),
+            // const Divider(),
+            Padding(
+              padding: const EdgeInsets.all(padding),
+              child: HighlightedText(value: tense?.je ?? ""),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(padding),
+              child: HighlightedText(value: tense?.tu ?? ""),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(padding),
+              child: HighlightedText(value: tense?.il ?? ""),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(padding),
+              child: HighlightedText(value: tense?.nous ?? ""),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(padding),
+              child: HighlightedText(value: tense?.vous ?? ""),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(padding),
+              child: HighlightedText(value: tense?.ils ?? ""),
+            ),
+            SizedBox(
+              height: 8.0,
+            )
           ],
         ),
       );
