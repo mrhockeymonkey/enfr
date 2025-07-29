@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:gpt_markdown/gpt_markdown.dart';
 
 class StringCollector extends StreamBuilderBase<String, List<String>> {
-  const StringCollector({super.key, required super.stream, required this.onCompleted});
+  const StringCollector(
+      {super.key,
+      required super.stream,
+      required this.onCompleted,
+      this.textAlign});
 
   final ValueChanged<String> onCompleted;
+  final TextAlign? textAlign;
 
   @override
   List<String> initial() => <String>[];
@@ -30,9 +36,19 @@ class StringCollector extends StreamBuilderBase<String, List<String>> {
   List<String> afterDisconnected(List<String> current) => current;
 
   @override
-  Widget build(BuildContext context, List<String> currentSummary) => Text(
-        currentSummary.join(),
-        textDirection: TextDirection.ltr,
-        textAlign: TextAlign.center,
-      );
+  Widget build(BuildContext context, List<String> currentSummary) => SelectionArea(
+    child: GptMarkdown(
+    currentSummary.join(),
+    textDirection: TextDirection.ltr,
+    textAlign: textAlign,
+    style: Theme.of(context).textTheme.bodyLarge,
+  ));
+
+  // @override
+  // Widget build(BuildContext context, List<String> currentSummary) => SelectableText(
+  //       currentSummary.join(),
+  //       textDirection: TextDirection.ltr,
+  //       textAlign: textAlign,
+  //       style: Theme.of(context).textTheme.bodyLarge,
+  //     );
 }

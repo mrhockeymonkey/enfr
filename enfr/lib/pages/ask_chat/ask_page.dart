@@ -1,20 +1,10 @@
 import 'package:enfr/chat_reply.dart';
+import 'package:enfr/data/api_keys.dart';
 import 'package:flutter/material.dart';
 import 'package:mistralai_client_dart/mistralai_client_dart.dart';
 
 class AskChatPage extends StatefulWidget {
-  const AskChatPage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
+  const AskChatPage({super.key});
 
   @override
   State<AskChatPage> createState() => _AskChatPageState();
@@ -22,6 +12,7 @@ class AskChatPage extends StatefulWidget {
 
 class _AskChatPageState extends State<AskChatPage> {
   int _counter = 0;
+  bool _showExplainBtn = false;
   String _answerText = "";
   late Stream<String> _answerStream;
   late Stream<String> _explanationStream;
@@ -85,7 +76,7 @@ class _AskChatPageState extends State<AskChatPage> {
   }
 
   Stream<String> _askChat(String content) async* {
-    final client = MistralAIClient(apiKey: 'BGO6PatyWxSounQinYLbz5dOL2bboOYN');
+    final client = MistralAIClient(apiKey: askAgentKey);
 
     var request = AgentsCompletionRequest(
       agentId: 'ag:6f5b526f:20250211:untitled-agent:854962cb',
@@ -107,7 +98,7 @@ class _AskChatPageState extends State<AskChatPage> {
   }
 
   Stream<String> _askChatExplain(String content) async* {
-    final client = MistralAIClient(apiKey: 'BGO6PatyWxSounQinYLbz5dOL2bboOYN');
+    final client = MistralAIClient(apiKey: explainAgentKey);
 
     var request = AgentsCompletionRequest(
       agentId: 'ag:6f5b526f:20250216:explain:819d1d96',
@@ -144,7 +135,18 @@ class _AskChatPageState extends State<AskChatPage> {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         // Here we take the value from the MyHomePage object that was created by
         // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
+        title: Text("Traduire"),
+      ),
+      drawer: Drawer(
+        child: ListView(
+          children: [
+            DrawerHeader(child: Text("Header")),
+            ListTile(
+              title: Text("Verbs"),
+              onTap: () => Navigator.of(context).pushNamed("/verbs"),
+            ),
+          ],
+        ),
       ),
       body: Center(
         // Center is a layout widget. It takes a single child and positions it
@@ -152,71 +154,55 @@ class _AskChatPageState extends State<AskChatPage> {
         child: Padding(
           padding: EdgeInsets.symmetric(vertical: 35.0, horizontal: 10.0),
           child: Column(
-            // Column is also a layout widget. It takes a list of children and
-            // arranges them vertically. By default, it sizes itself to fit its
-            // children horizontally, and tries to be as tall as its parent.
-            //
-            // Column has various properties to control how it sizes itself and
-            // how it positions its children. Here we use mainAxisAlignment to
-            // center the children vertically; the main axis here is the vertical
-            // axis because Columns are vertical (the cross axis would be
-            // horizontal).
-            //
-            // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-            // action in the IDE, or press "p" in the console), to see the
-            // wireframe for each widget.
             verticalDirection: VerticalDirection.down,
             mainAxisAlignment: MainAxisAlignment.end,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: <Widget>[
-              // const Text(
-              //   'You have pushed the button this many times:',
-              // ),
-              // Text(
-              //   '$_counter',
-              //   style: Theme.of(context).textTheme.headlineMedium,
-              // ),
               Expanded(
                 child: ListView(
                   children: [
-                    ChatReply(
-                      reply: _answerStream,
-                      onCompleted: (value) => setState(() {
-                        _answerText = value;
-                      }),),
-                    TextButton(
-                      onPressed: () => setState(
-                          () => _explanationStream = _askChatExplain(_answerText)),
-                      child: Text("explain"),
+                    Theme(
+                      data: Theme.of(context).copyWith(
+                        textTheme: Theme.of(context).textTheme.copyWith(
+                              bodyLarge: Theme.of(context)
+                                  .textTheme
+                                  .bodyLarge
+                                  ?.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                      ),
+                      child: ChatReply(
+                        reply: _answerStream,
+                        textAlign: TextAlign.center,
+                        onCompleted: (value) => setState(() {
+                          _answerText = value;
+                          if (_answerText.isNotEmpty) _showExplainBtn = true;
+                        }),
+                      ),
                     ),
+                    _showExplainBtn
+                        ? TextButton(
+                            onPressed: () => setState(() => _explanationStream =
+                                _askChatExplain(_answerText)),
+                            child: Text("explain"),
+                          )
+                        : Container(),
                     ChatReply(reply: _explanationStream)
                   ],
                 ),
               ),
-
-              // Expanded(
-              //   child: Container(
-
-              //     child: Card.outlined(
-              //       child: Text("hello world"),
-              //     ),
-              //   )
-
-              //   //,
-              // ),
               TextField(
                 controller: _controller,
                 decoration: InputDecoration(
-                  hintText: "Que veux-tu dire?",
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(25.0),
-                  ),
-                ),
-                onSubmitted: (value) {
-                  setState(() {
-                    _answerStream = _askChat(value);
-                  });
-                },
+                    hintText: "Que veux-tu dire?",
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(25.0),
+                    ),
+                    suffixIcon: IconButton(
+                      onPressed: () => _controller.clear(),
+                      icon: Icon(Icons.clear),
+                    )),
+                onSubmitted: (value) =>
+                    setState(() => _answerStream = _askChat(value)),
               ),
             ],
           ),
