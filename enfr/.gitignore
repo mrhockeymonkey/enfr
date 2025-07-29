@@ -45,3 +45,7 @@ app.*.map.json
 /android/app/release
 
 /android/app/.cxx
+
+
+# hide api keys
+/lib/data/api_keys.dart
