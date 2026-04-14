@@ -36,7 +36,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   mistralai_client_dart: ^1.1.0
   gpt_markdown: ^1.0.20
-  flutter_math_fork: 0.7.3 # See isse https://github.com/Infinitix-LLC/gpt_markdown/issues/62
+  flutter_math_fork: 0.7.4 # See isse https://github.com/Infinitix-LLC/gpt_markdown/issues/62
   provider: ^6.1.5
   collection: ^1.19.1
   yaml: ^3.1.3

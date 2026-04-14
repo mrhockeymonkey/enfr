@@ -1,5 +1,4 @@
 import 'package:enfr/chat_reply.dart';
-import 'package:enfr/data/api_keys.dart';
 import 'package:flutter/material.dart';
 import 'package:mistralai_client_dart/mistralai_client_dart.dart';
 
@@ -76,7 +75,7 @@ class _AskChatPageState extends State<AskChatPage> {
   }
 
   Stream<String> _askChat(String content) async* {
-    final client = MistralAIClient(apiKey: askAgentKey);
+    final client = MistralAIClient(apiKey: "");
 
     var request = AgentsCompletionRequest(
       agentId: 'ag:6f5b526f:20250211:untitled-agent:854962cb',
@@ -98,7 +97,7 @@ class _AskChatPageState extends State<AskChatPage> {
   }
 
   Stream<String> _askChatExplain(String content) async* {
-    final client = MistralAIClient(apiKey: explainAgentKey);
+    final client = MistralAIClient(apiKey: "");
 
     var request = AgentsCompletionRequest(
       agentId: 'ag:6f5b526f:20250216:explain:819d1d96',
