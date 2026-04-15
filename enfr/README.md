@@ -16,6 +16,14 @@ A new Flutter project.
 flutter run --release
 ```
 
+## Web Build
+
+To build for the web with output to the `/docs` folder (used for GitHub Pages hosting):
+
+```bash
+flutter build web --output ../docs
+```
+
 ## Getting Started
 
 This project is a starting point for a Flutter application.
