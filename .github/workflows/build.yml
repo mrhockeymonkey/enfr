@@ -24,7 +24,7 @@ jobs:
         working-directory: enfr
 
       - name: Build web
-        run: flutter build web
+        run: flutter build web --base-href /enfr/
         working-directory: enfr
 
       - name: Deploy to gh-pages branch
