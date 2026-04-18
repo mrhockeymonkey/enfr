@@ -1,0 +1,6 @@
+services:
+  android-build:
+    build: .
+    volumes:
+      - ./enfr:/workspace
+    command: flutter build apk --debug
