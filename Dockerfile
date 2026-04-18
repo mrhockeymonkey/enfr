@@ -3,6 +3,7 @@ FROM ubuntu:24.04
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y \
+    ca-certificates \
     curl \
     git \
     unzip \
@@ -14,6 +15,14 @@ RUN apt-get update && apt-get install -y \
 
 ENV JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
 
+# Optionally inject a custom CA certificate (e.g. for SSL-inspecting proxies).
+# Usage: docker build --build-arg "CUSTOM_CA_PEM=$(cat proxy-ca.pem)" ...
+ARG CUSTOM_CA_PEM=""
+RUN if [ -n "$CUSTOM_CA_PEM" ]; then \
+      printf '%s' "$CUSTOM_CA_PEM" > /usr/local/share/ca-certificates/custom-ca.crt && \
+      update-ca-certificates; \
+    fi
+
 # Install Flutter SDK pinned to stable 3.41.7
 ENV FLUTTER_HOME=/opt/flutter
 RUN git clone https://github.com/flutter/flutter.git \
@@ -22,7 +31,7 @@ RUN git clone https://github.com/flutter/flutter.git \
     $FLUTTER_HOME
 
 ENV PATH="$FLUTTER_HOME/bin:$PATH"
-RUN flutter --version
+RUN flutter --version && flutter config --enable-web
 
 # Install Android command-line tools
 ENV ANDROID_HOME=/opt/android-sdk

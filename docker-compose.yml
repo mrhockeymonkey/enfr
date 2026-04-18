@@ -3,4 +3,10 @@ services:
     build: .
     volumes:
       - ./enfr:/workspace
-    command: flutter build apk --debug
+    command: sh -c "flutter pub get && flutter build apk --debug"
+
+  web-build:
+    build: .
+    volumes:
+      - ./enfr:/workspace
+    command: sh -c "flutter pub get && flutter build web --base-href /enfr/"
