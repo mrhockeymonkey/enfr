@@ -10,6 +10,13 @@ A new Flutter project.
 - Work on agent prompts
 - Handle secrets safely
 
+## CI/CD
+
+On every push to `main`, GitHub Actions:
+
+- **Web** — builds and deploys to the `gh-pages` branch (configure GitHub Pages to serve from that branch)
+- **Android** — builds a debug APK and uploads it as a workflow artifact (`enfr-debug`) downloadable from the Actions tab
+
 ## Release
 
 ```bash

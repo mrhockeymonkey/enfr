@@ -1,4 +1,5 @@
 import 'package:enfr/chat_reply.dart';
+import 'package:enfr/services/api_key_service.dart';
 import 'package:flutter/material.dart';
 import 'package:mistralai_client_dart/mistralai_client_dart.dart';
 
@@ -74,8 +75,31 @@ class _AskChatPageState extends State<AskChatPage> {
     });
   }
 
+  Future<void> _submitQuestion(String content) async {
+    final key = await ApiKeyService.loadKey();
+    if (!mounted) return;
+    if (key == null || key.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Add your Mistral API key in Settings first')));
+      return;
+    }
+    setState(() => _answerStream = _askChat(content));
+  }
+
+  Future<void> _submitExplain(String content) async {
+    final key = await ApiKeyService.loadKey();
+    if (!mounted) return;
+    if (key == null || key.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Add your Mistral API key in Settings first')));
+      return;
+    }
+    setState(() => _explanationStream = _askChatExplain(content));
+  }
+
   Stream<String> _askChat(String content) async* {
-    final client = MistralAIClient(apiKey: "");
+    final key = await ApiKeyService.loadKey() ?? '';
+    final client = MistralAIClient(apiKey: key);
 
     var request = AgentsCompletionRequest(
       agentId: 'ag:6f5b526f:20250211:untitled-agent:854962cb',
@@ -97,7 +121,8 @@ class _AskChatPageState extends State<AskChatPage> {
   }
 
   Stream<String> _askChatExplain(String content) async* {
-    final client = MistralAIClient(apiKey: "");
+    final key = await ApiKeyService.loadKey() ?? '';
+    final client = MistralAIClient(apiKey: key);
 
     var request = AgentsCompletionRequest(
       agentId: 'ag:6f5b526f:20250216:explain:819d1d96',
@@ -144,6 +169,10 @@ class _AskChatPageState extends State<AskChatPage> {
               title: Text("Verbs"),
               onTap: () => Navigator.of(context).pushNamed("/verbs"),
             ),
+            ListTile(
+              title: Text("Settings"),
+              onTap: () => Navigator.of(context).pushNamed("/settings"),
+            ),
           ],
         ),
       ),
@@ -180,8 +209,7 @@ class _AskChatPageState extends State<AskChatPage> {
                     ),
                     _showExplainBtn
                         ? TextButton(
-                            onPressed: () => setState(() => _explanationStream =
-                                _askChatExplain(_answerText)),
+                            onPressed: () => _submitExplain(_answerText),
                             child: Text("explain"),
                           )
                         : Container(),
@@ -200,8 +228,7 @@ class _AskChatPageState extends State<AskChatPage> {
                       onPressed: () => _controller.clear(),
                       icon: Icon(Icons.clear),
                     )),
-                onSubmitted: (value) =>
-                    setState(() => _answerStream = _askChat(value)),
+                onSubmitted: (value) => _submitQuestion(value),
               ),
             ],
           ),

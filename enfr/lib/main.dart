@@ -1,9 +1,8 @@
-import 'package:enfr/chat_reply.dart';
 import 'package:enfr/data/verb-provider.dart';
 import 'package:enfr/pages/ask_chat/ask_page.dart';
+import 'package:enfr/pages/settings/settings_page.dart';
 import 'package:enfr/pages/verbs/verbs_page.dart';
 import 'package:flutter/material.dart';
-import 'package:mistralai_client_dart/mistralai_client_dart.dart';
 import 'package:provider/provider.dart';
 
 void main() {
@@ -46,7 +45,10 @@ class MyApp extends StatelessWidget {
       ),
       //home: const VerbsPage(),
       home: const AskChatPage(),
-      routes: {'/verbs': (context) => VerbsPage()},
+      routes: {
+        '/verbs': (context) => VerbsPage(),
+        '/settings': (context) => const SettingsPage(),
+      },
     );
   }
 }
