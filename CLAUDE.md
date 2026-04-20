@@ -13,16 +13,7 @@ Flutter app in `enfr/` subdirectory. GitHub Pages deployment at `https://mrhocke
 
 The Playwright MCP tools (`mcp__playwright__browser_*`) are the primary way to get visual feedback on UI changes. Follow these steps at the start of each session:
 
-### 1. Fix the Chrome symlink (required each session)
-
-The Playwright MCP server expects Chrome at `/opt/google/chrome/chrome`, but the actual binary is elsewhere:
-
-```bash
-mkdir -p /opt/google/chrome
-ln -sf /opt/pw-browsers/chromium-1194/chrome-linux/chrome /opt/google/chrome/chrome
-```
-
-### 2. Build the Flutter web app
+### 1. Build the Flutter web app
 
 For local testing (no base-href needed):
 ```bash
@@ -56,7 +47,7 @@ mcp__playwright__browser_snapshot
 - **Roboto font** fails to load (`fonts.gstatic.com` is network-restricted in this environment) — cosmetic only, not a real bug.
 - **External API calls** (Mistral AI) will fail — test UI flow only, not AI responses.
 - The HTTP server process is killed on session resume — restart it each time.
-- The Chrome symlink persists across session resumes (no need to recreate if it already exists).
+- The Chrome symlink is created automatically by the session start hook.
 
 ## CanvasKit: Local vs CDN
 
