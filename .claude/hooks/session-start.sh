@@ -31,3 +31,9 @@ cd "$CLAUDE_PROJECT_DIR/enfr"
 flutter pub get
 
 echo "Flutter setup complete!"
+
+# Fix Chrome symlink for Playwright MCP
+# The MCP server expects Chrome at /opt/google/chrome/chrome but the binary lives elsewhere
+mkdir -p /opt/google/chrome
+ln -sf /opt/pw-browsers/chromium-1194/chrome-linux/chrome /opt/google/chrome/chrome
+echo "Playwright Chrome symlink set."

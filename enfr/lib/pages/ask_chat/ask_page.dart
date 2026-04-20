@@ -20,8 +20,7 @@ class _AskChatPageState extends State<AskChatPage> {
 
   @override
   void initState() {
-    // TODO: implement initState
-    //_answer = _mockReply();
+    super.initState();
     _answerStream = Stream.empty();
     _explanationStream = Stream.empty();
     _controller = TextEditingController();
