@@ -68,6 +68,20 @@ flutter:
   assets:
     - assets/verbs.yaml
 
+  # Bundle Roboto locally so the app does not fetch it from fonts.gstatic.com
+  # at runtime. `--no-web-resources-cdn` alone does not prevent this fetch
+  # (see https://github.com/flutter/flutter/issues/163554).
+  fonts:
+    - family: Roboto
+      fonts:
+        - asset: assets/fonts/Roboto-Regular.ttf
+        - asset: assets/fonts/Roboto-Italic.ttf
+          style: italic
+        - asset: assets/fonts/Roboto-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Roboto-Bold.ttf
+          weight: 700
+
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
 
