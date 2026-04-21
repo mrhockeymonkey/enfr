@@ -7,7 +7,7 @@ Flutter app in `enfr/` subdirectory. GitHub Pages deployment at `https://mrhocke
 - `enfr/lib/` — Dart source
 - `enfr/web/` — Web-specific files (index.html, flutter_bootstrap.js)
 - `enfr/assets/verbs.yaml` — Verb conjugation data
-- `.github/workflows/build.yml` — CI: builds web with `--base-href /enfr/` and deploys to `gh-pages` branch
+- `.github/workflows/build.yml` — CI: builds web with `--base-href /enfr/ --no-web-resources-cdn` and deploys to `gh-pages` branch
 
 ## Testing the App Locally with Playwright MCP
 
@@ -17,13 +17,15 @@ The Playwright MCP tools (`mcp__playwright__browser_*`) are the primary way to g
 
 For local testing (no base-href needed):
 ```bash
-cd enfr && flutter build web
+cd enfr && flutter build web --no-web-resources-cdn
 ```
 
 For a production-equivalent build matching GitHub Pages:
 ```bash
-cd enfr && flutter build web --base-href /enfr/
+cd enfr && flutter build web --base-href /enfr/ --no-web-resources-cdn
 ```
+
+`--no-web-resources-cdn` bundles Flutter's web assets (fonts, CanvasKit) into the build output instead of pulling them from Google CDNs at runtime, so the app runs in restricted-network / air-gapped environments.
 
 ### 3. Start a local HTTP server
 
@@ -44,7 +46,6 @@ mcp__playwright__browser_snapshot
 
 ### Known Environment Limitations
 
-- **Roboto font** fails to load (`fonts.gstatic.com` is network-restricted in this environment) — cosmetic only, not a real bug.
 - **External API calls** (Mistral AI) will fail — test UI flow only, not AI responses.
 - The HTTP server process is killed on session resume — restart it each time.
 - The Chrome symlink is created automatically by the session start hook.
@@ -66,7 +67,7 @@ Without this, Flutter loads CanvasKit from `gstatic.com` CDN. If that fails (net
 ## CI / Deployment
 
 Merges to `main` trigger `.github/workflows/build.yml` which:
-1. Builds with `flutter build web --base-href /enfr/`
+1. Builds with `flutter build web --base-href /enfr/ --no-web-resources-cdn`
 2. Deploys `enfr/build/web/` to the `gh-pages` branch via `peaceiris/actions-gh-pages`
 
 GitHub Pages serves from the `gh-pages` branch root.
