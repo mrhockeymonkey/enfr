@@ -169,6 +169,10 @@ class _AskChatPageState extends State<AskChatPage> {
               onTap: () => Navigator.of(context).pushNamed("/verbs"),
             ),
             ListTile(
+              title: Text("Journal"),
+              onTap: () => Navigator.of(context).pushNamed("/journal"),
+            ),
+            ListTile(
               title: Text("Settings"),
               onTap: () => Navigator.of(context).pushNamed("/settings"),
             ),
