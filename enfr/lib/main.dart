@@ -1,5 +1,6 @@
 import 'package:enfr/data/verb-provider.dart';
 import 'package:enfr/pages/ask_chat/ask_page.dart';
+import 'package:enfr/pages/journal/journal_page.dart';
 import 'package:enfr/pages/settings/settings_page.dart';
 import 'package:enfr/pages/verbs/verbs_page.dart';
 import 'package:flutter/material.dart';
@@ -40,6 +41,7 @@ class MyApp extends StatelessWidget {
       home: const AskChatPage(),
       routes: {
         '/verbs': (context) => VerbsPage(),
+        '/journal': (context) => const JournalPage(),
         '/settings': (context) => const SettingsPage(),
       },
     );
