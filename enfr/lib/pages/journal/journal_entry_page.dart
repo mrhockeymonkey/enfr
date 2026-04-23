@@ -1,4 +1,6 @@
+import 'package:enfr/models/correction.dart';
 import 'package:enfr/models/journal_entry.dart';
+import 'package:enfr/services/correction_service.dart';
 import 'package:enfr/services/journal_service.dart';
 import 'package:flutter/material.dart';
 
@@ -15,6 +17,9 @@ class _JournalEntryPageState extends State<JournalEntryPage> {
   late final TextEditingController _titleController;
   late final TextEditingController _contentController;
   late DateTime _date;
+  late String _id;
+  bool _saving = false;
+  List<Correction> _corrections = const [];
 
   bool get _isEditing => widget.entry != null;
 
@@ -25,6 +30,8 @@ class _JournalEntryPageState extends State<JournalEntryPage> {
     _titleController = TextEditingController(text: e?.title ?? '');
     _contentController = TextEditingController(text: e?.content ?? '');
     _date = e?.date ?? DateTime.now();
+    _id = e?.id ?? DateTime.now().microsecondsSinceEpoch.toString();
+    _corrections = e?.corrections ?? const [];
   }
 
   @override
@@ -49,15 +56,14 @@ class _JournalEntryPageState extends State<JournalEntryPage> {
     if (picked != null) setState(() => _date = picked);
   }
 
-  Future<void> _save() async {
+  Future<void> _persist(List<Correction> corrections) async {
     final entries = await JournalService.loadEntries();
-    final existing = widget.entry;
     final saved = JournalEntry(
-      id: existing?.id ??
-          DateTime.now().microsecondsSinceEpoch.toString(),
+      id: _id,
       date: _date,
       title: _titleController.text.trim(),
       content: _contentController.text,
+      corrections: corrections,
     );
     final idx = entries.indexWhere((e) => e.id == saved.id);
     if (idx >= 0) {
@@ -66,7 +72,32 @@ class _JournalEntryPageState extends State<JournalEntryPage> {
       entries.add(saved);
     }
     await JournalService.saveEntries(entries);
-    if (mounted) Navigator.of(context).pop();
+  }
+
+  Future<void> _save() async {
+    if (_saving) return;
+    setState(() => _saving = true);
+
+    await _persist(_corrections);
+
+    try {
+      final fresh =
+          await CorrectionService.checkEntry(_contentController.text);
+      await _persist(fresh);
+      if (!mounted) return;
+      setState(() => _corrections = fresh);
+      _showCorrectionsSheet();
+    } on MissingApiKeyException {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Add your Mistral API key in Settings first')));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text("Couldn't check entry: $e")));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   Future<void> _delete() async {
@@ -78,6 +109,82 @@ class _JournalEntryPageState extends State<JournalEntryPage> {
     if (mounted) Navigator.of(context).pop();
   }
 
+  void _showCorrectionsSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) {
+        if (_corrections.isEmpty) {
+          return const SizedBox(
+            height: 200,
+            child: Center(
+              child: Padding(
+                padding: EdgeInsets.all(24.0),
+                child: Text(
+                  'Looks good — no corrections!',
+                  style: TextStyle(fontSize: 16),
+                ),
+              ),
+            ),
+          );
+        }
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.6,
+          minChildSize: 0.3,
+          maxChildSize: 0.9,
+          builder: (ctx, scrollController) => ListView.builder(
+            controller: scrollController,
+            padding: const EdgeInsets.all(12),
+            itemCount: _corrections.length + 1,
+            itemBuilder: (ctx, i) {
+              if (i == 0) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    'Corrections (${_corrections.length})',
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                );
+              }
+              final c = _corrections[i - 1];
+              return Card(
+                margin: const EdgeInsets.symmetric(vertical: 6),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        c.originalText,
+                        style: TextStyle(
+                          decoration: TextDecoration.lineThrough,
+                          color: Colors.red.shade700,
+                        ),
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 4),
+                        child: Icon(Icons.arrow_downward, size: 16),
+                      ),
+                      Text(
+                        c.suggestedText,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green.shade800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -85,15 +192,30 @@ class _JournalEntryPageState extends State<JournalEntryPage> {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: Text(_isEditing ? 'Edit entry' : 'New entry'),
         actions: [
+          if (_corrections.isNotEmpty)
+            IconButton(
+              icon: Badge(
+                label: Text('${_corrections.length}'),
+                child: const Icon(Icons.rule),
+              ),
+              onPressed: _showCorrectionsSheet,
+              tooltip: 'View corrections',
+            ),
           if (_isEditing)
             IconButton(
               icon: const Icon(Icons.delete_outline),
-              onPressed: _delete,
+              onPressed: _saving ? null : _delete,
               tooltip: 'Delete',
             ),
           IconButton(
-            icon: const Icon(Icons.save),
-            onPressed: _save,
+            icon: _saving
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.save),
+            onPressed: _saving ? null : _save,
             tooltip: 'Save',
           ),
         ],
