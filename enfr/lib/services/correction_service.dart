@@ -11,16 +11,21 @@ class MissingApiKeyException implements Exception {
 class CorrectionService {
   static const String _model = 'mistral-small-latest';
 
-  static Future<List<Correction>> checkEntry(String content) async {
+  static Future<List<Correction>> checkEntry(
+    String content, {
+    List<Correction> previous = const [],
+  }) async {
     final key = await ApiKeyService.loadKey();
     if (key == null || key.isEmpty) {
       throw const MissingApiKeyException();
     }
 
-    final prompt = kCorrectionPrompt.replaceFirst(
-      kCorrectionPromptPlaceholder,
-      content,
-    );
+    final prompt = kCorrectionPrompt
+        .replaceFirst(kCorrectionPromptEntryPlaceholder, content)
+        .replaceFirst(
+          kCorrectionPromptPreviousPlaceholder,
+          _renderPrevious(previous),
+        );
 
     final client = MistralAIClient(apiKey: key);
     final response = await client.chatComplete(
@@ -44,5 +49,21 @@ class CorrectionService {
     );
 
     return parseCorrections(raw);
+  }
+
+  static String _renderPrevious(List<Correction> previous) {
+    if (previous.isEmpty) return 'None';
+    final buf = StringBuffer();
+    for (final c in previous) {
+      buf
+        ..write('- ')
+        ..write(c.status.name)
+        ..write(': <text>')
+        ..write(c.originalText)
+        ..write('</text> -> <correction>')
+        ..write(c.suggestedText)
+        ..writeln('</correction>');
+    }
+    return buf.toString().trimRight();
   }
 }

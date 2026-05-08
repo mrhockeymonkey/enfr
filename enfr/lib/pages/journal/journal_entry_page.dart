@@ -81,8 +81,10 @@ class _JournalEntryPageState extends State<JournalEntryPage> {
     await _persist(_corrections);
 
     try {
-      final fresh =
-          await CorrectionService.checkEntry(_contentController.text);
+      final fresh = await CorrectionService.checkEntry(
+        _contentController.text,
+        previous: _corrections,
+      );
       await _persist(fresh);
       if (!mounted) return;
       setState(() => _corrections = fresh);
@@ -128,6 +130,17 @@ class _JournalEntryPageState extends State<JournalEntryPage> {
             ),
           );
         }
+        final active = _corrections.active;
+        final fixed = _corrections.fixed;
+        final rows = <Widget>[];
+        if (active.isNotEmpty) {
+          rows.add(_sectionHeader('Active (${active.length})'));
+          rows.addAll(active.map(_activeCard));
+        }
+        if (fixed.isNotEmpty) {
+          rows.add(_sectionHeader('Fixed (${fixed.length})'));
+          rows.addAll(fixed.map(_fixedCard));
+        }
         return DraggableScrollableSheet(
           expand: false,
           initialChildSize: 0.6,
@@ -136,57 +149,93 @@ class _JournalEntryPageState extends State<JournalEntryPage> {
           builder: (ctx, scrollController) => ListView.builder(
             controller: scrollController,
             padding: const EdgeInsets.all(12),
-            itemCount: _corrections.length + 1,
-            itemBuilder: (ctx, i) {
-              if (i == 0) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Text(
-                    'Corrections (${_corrections.length})',
-                    style: const TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                );
-              }
-              final c = _corrections[i - 1];
-              return Card(
-                margin: const EdgeInsets.symmetric(vertical: 6),
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        c.originalText,
-                        style: TextStyle(
-                          decoration: TextDecoration.lineThrough,
-                          color: Colors.red.shade700,
-                        ),
-                      ),
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 4),
-                        child: Icon(Icons.arrow_downward, size: 16),
-                      ),
-                      Text(
-                        c.suggestedText,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green.shade800,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
+            itemCount: rows.length,
+            itemBuilder: (ctx, i) => rows[i],
           ),
         );
       },
     );
   }
 
+  Widget _sectionHeader(String label) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Text(
+          label,
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+      );
+
+  Widget _activeCard(Correction c) => Card(
+        margin: const EdgeInsets.symmetric(vertical: 6),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                c.originalText,
+                style: TextStyle(
+                  decoration: TextDecoration.lineThrough,
+                  color: Colors.red.shade700,
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 4),
+                child: Icon(Icons.arrow_downward, size: 16),
+              ),
+              Text(
+                c.suggestedText,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.green.shade800,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+
+  Widget _fixedCard(Correction c) => Card(
+        margin: const EdgeInsets.symmetric(vertical: 6),
+        color: Colors.grey.shade100,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 2, right: 8),
+                child: Icon(Icons.check_circle,
+                    size: 18, color: Colors.green.shade600),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      c.originalText,
+                      style: TextStyle(color: Colors.grey.shade600),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 4),
+                      child: Icon(Icons.arrow_downward,
+                          size: 14, color: Colors.grey),
+                    ),
+                    Text(
+                      c.suggestedText,
+                      style: TextStyle(color: Colors.grey.shade700),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+
   @override
   Widget build(BuildContext context) {
+    final activeCount = _corrections.active.length;
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
@@ -194,10 +243,12 @@ class _JournalEntryPageState extends State<JournalEntryPage> {
         actions: [
           if (_corrections.isNotEmpty)
             IconButton(
-              icon: Badge(
-                label: Text('${_corrections.length}'),
-                child: const Icon(Icons.rule),
-              ),
+              icon: activeCount > 0
+                  ? Badge(
+                      label: Text('$activeCount'),
+                      child: const Icon(Icons.rule),
+                    )
+                  : const Icon(Icons.rule),
               onPressed: _showCorrectionsSheet,
               tooltip: 'View corrections',
             ),
