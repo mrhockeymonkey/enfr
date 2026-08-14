@@ -1,6 +1,7 @@
 import 'package:enfr/chat_reply.dart';
 import 'package:enfr/data/verb-provider.dart';
 import 'package:enfr/pages/ask_chat/ask_page.dart';
+import 'package:enfr/pages/doomscroll/doomscroll_page.dart';
 import 'package:enfr/pages/verbs/verbs_page.dart';
 import 'package:flutter/material.dart';
 import 'package:mistralai_client_dart/mistralai_client_dart.dart';
@@ -45,7 +46,8 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
       ),
       //home: const VerbsPage(),
-      home: const AskChatPage(),
+      // home: const AskChatPage(),
+      home: DoomscrollPage(),
       routes: {'/verbs': (context) => VerbsPage()},
     );
   }
