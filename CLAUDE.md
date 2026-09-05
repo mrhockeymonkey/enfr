@@ -2,12 +2,13 @@
 
 ## Project Structure
 
-Flutter app in `enfr/` subdirectory. GitHub Pages deployment at `https://mrhockeymonkey.github.io/enfr`.
+**Web-only** Flutter app in `enfr/` subdirectory. GitHub Pages deployment at `https://mrhockeymonkey.github.io/enfr`. There are no `android/` or `ios/` targets — web is the only supported platform.
 
 - `enfr/lib/` — Dart source
 - `enfr/web/` — Web-specific files (index.html, flutter_bootstrap.js)
 - `enfr/assets/verbs.yaml` — Verb conjugation data
-- `.github/workflows/build.yml` — CI: builds web with `--base-href /enfr/ --no-web-resources-cdn` and deploys to `gh-pages` branch
+- `.flutter-version` — Pinned Flutter SDK version (see below)
+- `.github/workflows/build.yml` — CI: builds web with `--wasm --base-href /enfr/ --no-web-resources-cdn` and deploys to `gh-pages` branch
 
 ## Testing the App Locally with Playwright MCP
 
@@ -22,7 +23,7 @@ cd enfr && flutter build web --no-web-resources-cdn
 
 For a production-equivalent build matching GitHub Pages:
 ```bash
-cd enfr && flutter build web --base-href /enfr/ --no-web-resources-cdn
+cd enfr && flutter build web --wasm --base-href /enfr/ --no-web-resources-cdn
 ```
 
 `--no-web-resources-cdn` bundles Flutter's web assets (fonts, CanvasKit) into the build output instead of pulling them from Google CDNs at runtime, so the app runs in restricted-network / air-gapped environments.
@@ -50,6 +51,27 @@ mcp__playwright__browser_snapshot
 - The HTTP server process is killed on session resume — restart it each time.
 - The Chrome symlink is created automatically by the session start hook.
 
+## WebAssembly Build
+
+The deployed site is built with `--wasm`, which compiles Dart to WebAssembly and
+renders via **skwasm** instead of CanvasKit. Flutter emits both, and the loader
+picks at runtime:
+
+- `main.dart.wasm` + `main.dart.mjs` — used by browsers with WasmGC support
+- `main.dart.js` — automatic fallback for everything else
+
+So `--wasm` does not drop support for older browsers; it adds a faster path for
+newer ones. Both renderers read their assets from `canvaskit/`, so
+`canvasKitBaseUrl` in `flutter_bootstrap.js` and `--no-web-resources-cdn` still
+apply to the wasm build.
+
+**This depends on every dependency being wasm-clean** — no `dart:html`,
+`dart:js_util`, or `package:js`. `flutter_secure_storage` had to go to 11.x for
+this reason. If a future dependency reintroduces those, `flutter build web
+--wasm` fails and the build output names the offending package. `flutter build
+web` (without `--wasm`) prints a "Wasm dry run" warning for the same problem, so
+watch for that when adding packages.
+
 ## CanvasKit: Local vs CDN
 
 `enfr/web/flutter_bootstrap.js` forces local CanvasKit:
@@ -64,10 +86,21 @@ _flutter.loader.load({
 
 Without this, Flutter loads CanvasKit from `gstatic.com` CDN. If that fails (network restrictions, firewalls), the app shows a **blank white screen** with no fallback. The locally bundled `canvaskit/` directory is the fix.
 
+## Flutter SDK Version Pin
+
+`.flutter-version` at the repo root holds the exact SDK version (e.g. `3.47.2`) and is the single source of truth:
+
+- `.claude/hooks/session-start.sh` reads it and clones that exact tag into `/opt/flutter-<version>`. The install directory is version-named, so bumping the pin installs a fresh SDK rather than reusing a stale one.
+- `.github/workflows/build.yml` reads it into a step output and feeds it to `subosito/flutter-action`.
+
+Nothing tracks `stable`, so a new Flutter release is never picked up automatically. **To upgrade:** edit `.flutter-version`, run `flutter clean && flutter pub get`, and commit the regenerated `enfr/pubspec.lock` — CI runs `flutter pub get --enforce-lockfile` and will fail if the lockfile wasn't refreshed.
+
 ## CI / Deployment
 
 Merges to `main` trigger `.github/workflows/build.yml` which:
-1. Builds with `flutter build web --base-href /enfr/ --no-web-resources-cdn`
-2. Deploys `enfr/build/web/` to the `gh-pages` branch via `peaceiris/actions-gh-pages`
+1. Reads the pinned SDK version from `.flutter-version`
+2. Installs dependencies with `flutter pub get --enforce-lockfile`
+3. Builds with `flutter build web --wasm --base-href /enfr/ --no-web-resources-cdn`
+4. Deploys `enfr/build/web/` to the `gh-pages` branch via `peaceiris/actions-gh-pages`
 
 GitHub Pages serves from the `gh-pages` branch root.
