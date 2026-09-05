@@ -80,8 +80,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             const SizedBox(height: 24),
             const Text(
-              'On web, your key is stored in browser localStorage.\n'
-              'On Android it is encrypted using the Android Keystore.',
+              'Your key is stored in browser localStorage.',
               style: TextStyle(fontSize: 12, color: Colors.grey),
             ),
           ],

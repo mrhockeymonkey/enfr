@@ -12,15 +12,24 @@ A new Flutter project.
 
 ## CI/CD
 
-On every push to `main`, GitHub Actions:
+This is a **web-only** Flutter app. On every push to `main`, GitHub Actions
+builds the web app and deploys it to the `gh-pages` branch (GitHub Pages is
+configured to serve from that branch).
 
-- **Web** — builds and deploys to the `gh-pages` branch (configure GitHub Pages to serve from that branch)
-- **Android** — builds a debug APK and uploads it as a workflow artifact (`enfr-debug`) downloadable from the Actions tab
+The Flutter SDK version is pinned in `.flutter-version` at the repo root. CI
+reads that file, so the SDK never floats to a new release on its own. To upgrade,
+change that one file and regenerate `pubspec.lock`.
 
-## Release
+## Running locally
 
 ```bash
-flutter run --release
+flutter run -d chrome
+```
+
+## Release build
+
+```bash
+flutter build web --base-href /enfr/ --no-web-resources-cdn
 ```
 
 ## Getting Started

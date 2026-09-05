@@ -2,11 +2,12 @@
 
 ## Project Structure
 
-Flutter app in `enfr/` subdirectory. GitHub Pages deployment at `https://mrhockeymonkey.github.io/enfr`.
+**Web-only** Flutter app in `enfr/` subdirectory. GitHub Pages deployment at `https://mrhockeymonkey.github.io/enfr`. There are no `android/` or `ios/` targets — web is the only supported platform.
 
 - `enfr/lib/` — Dart source
 - `enfr/web/` — Web-specific files (index.html, flutter_bootstrap.js)
 - `enfr/assets/verbs.yaml` — Verb conjugation data
+- `.flutter-version` — Pinned Flutter SDK version (see below)
 - `.github/workflows/build.yml` — CI: builds web with `--base-href /enfr/ --no-web-resources-cdn` and deploys to `gh-pages` branch
 
 ## Testing the App Locally with Playwright MCP
@@ -64,10 +65,21 @@ _flutter.loader.load({
 
 Without this, Flutter loads CanvasKit from `gstatic.com` CDN. If that fails (network restrictions, firewalls), the app shows a **blank white screen** with no fallback. The locally bundled `canvaskit/` directory is the fix.
 
+## Flutter SDK Version Pin
+
+`.flutter-version` at the repo root holds the exact SDK version (e.g. `3.47.2`) and is the single source of truth:
+
+- `.claude/hooks/session-start.sh` reads it and clones that exact tag into `/opt/flutter-<version>`. The install directory is version-named, so bumping the pin installs a fresh SDK rather than reusing a stale one.
+- `.github/workflows/build.yml` reads it into a step output and feeds it to `subosito/flutter-action`.
+
+Nothing tracks `stable`, so a new Flutter release is never picked up automatically. **To upgrade:** edit `.flutter-version`, run `flutter clean && flutter pub get`, and commit the regenerated `enfr/pubspec.lock` — CI runs `flutter pub get --enforce-lockfile` and will fail if the lockfile wasn't refreshed.
+
 ## CI / Deployment
 
 Merges to `main` trigger `.github/workflows/build.yml` which:
-1. Builds with `flutter build web --base-href /enfr/ --no-web-resources-cdn`
-2. Deploys `enfr/build/web/` to the `gh-pages` branch via `peaceiris/actions-gh-pages`
+1. Reads the pinned SDK version from `.flutter-version`
+2. Installs dependencies with `flutter pub get --enforce-lockfile`
+3. Builds with `flutter build web --base-href /enfr/ --no-web-resources-cdn`
+4. Deploys `enfr/build/web/` to the `gh-pages` branch via `peaceiris/actions-gh-pages`
 
 GitHub Pages serves from the `gh-pages` branch root.

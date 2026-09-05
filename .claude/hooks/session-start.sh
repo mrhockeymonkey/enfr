@@ -6,13 +6,16 @@ if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
   exit 0
 fi
 
-FLUTTER_INSTALL_DIR="/opt/flutter"
+# Pinned SDK version — the single source of truth, also read by CI
+FLUTTER_VERSION="$(tr -d '[:space:]' < "$CLAUDE_PROJECT_DIR/.flutter-version")"
 
-# Install Flutter SDK if not already present
-if [ ! -f "$FLUTTER_INSTALL_DIR/bin/flutter" ]; then
-  echo "Installing Flutter SDK (stable)..."
+# Version-named so bumping the pin installs fresh instead of reusing a stale SDK
+FLUTTER_INSTALL_DIR="/opt/flutter-$FLUTTER_VERSION"
+
+if [ ! -x "$FLUTTER_INSTALL_DIR/bin/flutter" ]; then
+  echo "Installing Flutter SDK $FLUTTER_VERSION..."
   GIT_TERMINAL_PROMPT=0 git clone https://github.com/flutter/flutter.git \
-    -b stable \
+    -b "$FLUTTER_VERSION" \
     --depth 1 \
     "$FLUTTER_INSTALL_DIR"
 fi
