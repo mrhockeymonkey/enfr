@@ -8,7 +8,7 @@
 - `enfr/web/` — Web-specific files (index.html, flutter_bootstrap.js)
 - `enfr/assets/verbs.yaml` — Verb conjugation data
 - `.flutter-version` — Pinned Flutter SDK version (see below)
-- `.github/workflows/build.yml` — CI: builds web with `--base-href /enfr/ --no-web-resources-cdn` and deploys to `gh-pages` branch
+- `.github/workflows/build.yml` — CI: builds web with `--wasm --base-href /enfr/ --no-web-resources-cdn` and deploys to `gh-pages` branch
 
 ## Testing the App Locally with Playwright MCP
 
@@ -23,7 +23,7 @@ cd enfr && flutter build web --no-web-resources-cdn
 
 For a production-equivalent build matching GitHub Pages:
 ```bash
-cd enfr && flutter build web --base-href /enfr/ --no-web-resources-cdn
+cd enfr && flutter build web --wasm --base-href /enfr/ --no-web-resources-cdn
 ```
 
 `--no-web-resources-cdn` bundles Flutter's web assets (fonts, CanvasKit) into the build output instead of pulling them from Google CDNs at runtime, so the app runs in restricted-network / air-gapped environments.
@@ -50,6 +50,27 @@ mcp__playwright__browser_snapshot
 - **External API calls** (Mistral AI) will fail — test UI flow only, not AI responses.
 - The HTTP server process is killed on session resume — restart it each time.
 - The Chrome symlink is created automatically by the session start hook.
+
+## WebAssembly Build
+
+The deployed site is built with `--wasm`, which compiles Dart to WebAssembly and
+renders via **skwasm** instead of CanvasKit. Flutter emits both, and the loader
+picks at runtime:
+
+- `main.dart.wasm` + `main.dart.mjs` — used by browsers with WasmGC support
+- `main.dart.js` — automatic fallback for everything else
+
+So `--wasm` does not drop support for older browsers; it adds a faster path for
+newer ones. Both renderers read their assets from `canvaskit/`, so
+`canvasKitBaseUrl` in `flutter_bootstrap.js` and `--no-web-resources-cdn` still
+apply to the wasm build.
+
+**This depends on every dependency being wasm-clean** — no `dart:html`,
+`dart:js_util`, or `package:js`. `flutter_secure_storage` had to go to 11.x for
+this reason. If a future dependency reintroduces those, `flutter build web
+--wasm` fails and the build output names the offending package. `flutter build
+web` (without `--wasm`) prints a "Wasm dry run" warning for the same problem, so
+watch for that when adding packages.
 
 ## CanvasKit: Local vs CDN
 
@@ -79,7 +100,7 @@ Nothing tracks `stable`, so a new Flutter release is never picked up automatical
 Merges to `main` trigger `.github/workflows/build.yml` which:
 1. Reads the pinned SDK version from `.flutter-version`
 2. Installs dependencies with `flutter pub get --enforce-lockfile`
-3. Builds with `flutter build web --base-href /enfr/ --no-web-resources-cdn`
+3. Builds with `flutter build web --wasm --base-href /enfr/ --no-web-resources-cdn`
 4. Deploys `enfr/build/web/` to the `gh-pages` branch via `peaceiris/actions-gh-pages`
 
 GitHub Pages serves from the `gh-pages` branch root.

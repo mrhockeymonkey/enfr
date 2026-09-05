@@ -13,8 +13,9 @@ A new Flutter project.
 ## CI/CD
 
 This is a **web-only** Flutter app. On every push to `main`, GitHub Actions
-builds the web app and deploys it to the `gh-pages` branch (GitHub Pages is
-configured to serve from that branch).
+builds the web app with `--wasm` and deploys it to the `gh-pages` branch (GitHub
+Pages is configured to serve from that branch). The wasm build ships a JS
+fallback alongside it, so browsers without WebAssembly GC support still work.
 
 The Flutter SDK version is pinned in `.flutter-version` at the repo root. CI
 reads that file, so the SDK never floats to a new release on its own. To upgrade,
@@ -29,7 +30,7 @@ flutter run -d chrome
 ## Release build
 
 ```bash
-flutter build web --base-href /enfr/ --no-web-resources-cdn
+flutter build web --wasm --base-href /enfr/ --no-web-resources-cdn
 ```
 
 ## Getting Started
