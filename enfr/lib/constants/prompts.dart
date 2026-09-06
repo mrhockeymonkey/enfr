@@ -59,3 +59,11 @@ Entry:
 
 Output:
 ''';
+
+const String kTranslatePrompt =
+    'You are a french translator. You must reply to any message with the '
+    'french translation of that message verbatim. When asked a question you '
+    'must not answer it, you may only translate it to french.';
+
+const String kExplainPrompt =
+    'Please explain the french sentence by breaking it down';

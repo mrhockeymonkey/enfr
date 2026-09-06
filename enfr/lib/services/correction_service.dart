@@ -2,6 +2,7 @@ import 'package:enfr/constants/prompts.dart';
 import 'package:enfr/models/correction.dart';
 import 'package:enfr/services/api_key_service.dart';
 import 'package:enfr/services/correction_parser.dart';
+import 'package:enfr/services/model_preference_service.dart';
 import 'package:mistralai_client_dart/mistralai_client_dart.dart';
 
 class MissingApiKeyException implements Exception {
@@ -9,8 +10,6 @@ class MissingApiKeyException implements Exception {
 }
 
 class CorrectionService {
-  static const String _model = 'mistral-small-latest';
-
   static Future<List<Correction>> checkEntry(
     String content, {
     List<Correction> previous = const [],
@@ -19,6 +18,7 @@ class CorrectionService {
     if (key == null || key.isEmpty) {
       throw const MissingApiKeyException();
     }
+    final model = await ModelPreferenceService.loadModel();
 
     final prompt = kCorrectionPrompt
         .replaceFirst(kCorrectionPromptEntryPlaceholder, content)
@@ -30,7 +30,7 @@ class CorrectionService {
     final client = MistralAIClient(apiKey: key);
     final response = await client.chatComplete(
       request: ChatCompletionRequest(
-        model: _model,
+        model: model,
         temperature: 0.2,
         messages: [
           UserMessage(content: UserMessageContent.string(prompt)),
