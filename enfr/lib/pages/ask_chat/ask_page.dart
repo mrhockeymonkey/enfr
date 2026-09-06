@@ -1,5 +1,7 @@
 import 'package:enfr/chat_reply.dart';
+import 'package:enfr/constants/prompts.dart';
 import 'package:enfr/services/api_key_service.dart';
+import 'package:enfr/services/model_preference_service.dart';
 import 'package:flutter/material.dart';
 import 'package:mistralai_client_dart/mistralai_client_dart.dart';
 
@@ -98,16 +100,18 @@ class _AskChatPageState extends State<AskChatPage> {
 
   Stream<String> _askChat(String content) async* {
     final key = await ApiKeyService.loadKey() ?? '';
+    final model = await ModelPreferenceService.loadModel();
     final client = MistralAIClient(apiKey: key);
 
-    var request = AgentsCompletionRequest(
-      agentId: 'ag:6f5b526f:20250211:untitled-agent:854962cb',
+    var request = ChatCompletionRequest(
+      model: model,
       messages: [
+        SystemMessage(content: Content.string(kTranslatePrompt)),
         UserMessage(content: UserMessageContent.string(content)),
       ],
     );
 
-    final stream = client.agentsStream(request: request);
+    final stream = client.chatStream(request: request);
     await for (final completionChunk in stream) {
       final chatMessage = completionChunk.choices[0].delta.content;
       print(chatMessage);
@@ -121,16 +125,18 @@ class _AskChatPageState extends State<AskChatPage> {
 
   Stream<String> _askChatExplain(String content) async* {
     final key = await ApiKeyService.loadKey() ?? '';
+    final model = await ModelPreferenceService.loadModel();
     final client = MistralAIClient(apiKey: key);
 
-    var request = AgentsCompletionRequest(
-      agentId: 'ag:6f5b526f:20250216:explain:819d1d96',
+    var request = ChatCompletionRequest(
+      model: model,
       messages: [
+        SystemMessage(content: Content.string(kExplainPrompt)),
         UserMessage(content: UserMessageContent.string(content)),
       ],
     );
 
-    final stream = client.agentsStream(request: request);
+    final stream = client.chatStream(request: request);
     await for (final completionChunk in stream) {
       final chatMessage = completionChunk.choices[0].delta.content;
       print(chatMessage);
