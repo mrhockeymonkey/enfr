@@ -7,7 +7,7 @@ if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
 fi
 
 # Pinned SDK version — the single source of truth, also read by CI
-FLUTTER_VERSION="$(tr -d '[:space:]' < "$CLAUDE_PROJECT_DIR/.flutter-version")"
+FLUTTER_VERSION="$(python3 -c "import json;print(json.load(open('$CLAUDE_PROJECT_DIR/.fvmrc'))['flutter'])")"
 
 # Version-named so bumping the pin installs fresh instead of reusing a stale SDK
 FLUTTER_INSTALL_DIR="/opt/flutter-$FLUTTER_VERSION"
@@ -30,7 +30,7 @@ flutter --version
 
 # Install project dependencies
 echo "Installing project dependencies..."
-cd "$CLAUDE_PROJECT_DIR/enfr"
+cd "$CLAUDE_PROJECT_DIR"
 flutter pub get
 
 echo "Flutter setup complete!"
