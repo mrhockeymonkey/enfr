@@ -1,4 +1,5 @@
 import 'package:enfr/chat_reply.dart';
+import 'package:enfr/constants/app_version.dart';
 import 'package:enfr/constants/prompts.dart';
 import 'package:enfr/services/api_key_service.dart';
 import 'package:enfr/services/model_preference_service.dart';
@@ -167,20 +168,33 @@ class _AskChatPageState extends State<AskChatPage> {
         title: Text("Traduire"),
       ),
       drawer: Drawer(
-        child: ListView(
+        child: Column(
           children: [
-            DrawerHeader(child: Text("Header")),
-            ListTile(
-              title: Text("Verbs"),
-              onTap: () => Navigator.of(context).pushNamed("/verbs"),
+            Expanded(
+              child: ListView(
+                children: [
+                  DrawerHeader(child: Text("Header")),
+                  ListTile(
+                    title: Text("Verbs"),
+                    onTap: () => Navigator.of(context).pushNamed("/verbs"),
+                  ),
+                  ListTile(
+                    title: Text("Journal"),
+                    onTap: () => Navigator.of(context).pushNamed("/journal"),
+                  ),
+                  ListTile(
+                    title: Text("Settings"),
+                    onTap: () => Navigator.of(context).pushNamed("/settings"),
+                  ),
+                ],
+              ),
             ),
-            ListTile(
-              title: Text("Journal"),
-              onTap: () => Navigator.of(context).pushNamed("/journal"),
-            ),
-            ListTile(
-              title: Text("Settings"),
-              onTap: () => Navigator.of(context).pushNamed("/settings"),
+            Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Text(
+                'v$appVersion+$appBuildNumber',
+                style: TextStyle(fontSize: 11, color: Colors.grey[700]),
+              ),
             ),
           ],
         ),
