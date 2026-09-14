@@ -6,6 +6,8 @@ import 'package:enfr/services/model_preference_service.dart';
 import 'package:flutter/material.dart';
 import 'package:mistralai_client_dart/mistralai_client_dart.dart';
 
+enum TranslationDirection { enToFr, frToEn }
+
 class AskChatPage extends StatefulWidget {
   const AskChatPage({super.key});
 
@@ -20,6 +22,7 @@ class _AskChatPageState extends State<AskChatPage> {
   late Stream<String> _answerStream;
   late Stream<String> _explanationStream;
   late TextEditingController _controller;
+  TranslationDirection _direction = TranslationDirection.enToFr;
 
   @override
   void initState() {
@@ -104,10 +107,14 @@ class _AskChatPageState extends State<AskChatPage> {
     final model = await ModelPreferenceService.loadModel();
     final client = MistralAIClient(apiKey: key);
 
+    final systemPrompt = _direction == TranslationDirection.enToFr
+        ? kTranslatePrompt
+        : kTranslateToEnglishPrompt;
+
     var request = ChatCompletionRequest(
       model: model,
       messages: [
-        SystemMessage(content: Content.string(kTranslatePrompt)),
+        SystemMessage(content: Content.string(systemPrompt)),
         UserMessage(content: UserMessageContent.string(content)),
       ],
     );
@@ -240,10 +247,33 @@ class _AskChatPageState extends State<AskChatPage> {
                   ],
                 ),
               ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(_direction == TranslationDirection.enToFr
+                      ? "English"
+                      : "French"),
+                  IconButton(
+                    icon: const Icon(Icons.swap_horiz),
+                    tooltip: "Switch translation direction",
+                    onPressed: () => setState(() {
+                      _direction =
+                          _direction == TranslationDirection.enToFr
+                              ? TranslationDirection.frToEn
+                              : TranslationDirection.enToFr;
+                    }),
+                  ),
+                  Text(_direction == TranslationDirection.enToFr
+                      ? "French"
+                      : "English"),
+                ],
+              ),
               TextField(
                 controller: _controller,
                 decoration: InputDecoration(
-                    hintText: "Que veux-tu dire?",
+                    hintText: _direction == TranslationDirection.enToFr
+                        ? "What do you want to say?"
+                        : "Que veux-tu dire?",
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(25.0),
                     ),

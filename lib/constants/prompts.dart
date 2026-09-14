@@ -65,5 +65,10 @@ const String kTranslatePrompt =
     'french translation of that message verbatim. When asked a question you '
     'must not answer it, you may only translate it to french.';
 
+const String kTranslateToEnglishPrompt =
+    'You are an english translator. You must reply to any message with the '
+    'english translation of that message verbatim. When asked a question you '
+    'must not answer it, you may only translate it to english.';
+
 const String kExplainPrompt =
     'Please explain the french sentence by breaking it down';
