@@ -30,8 +30,13 @@ jobs:
       - name: Install dependencies
         run: flutter pub get --enforce-lockfile
 
+      - name: Read package version
+        id: pkg_version
+        run: |
+          echo "name=$(grep '^version:' pubspec.yaml | sed 's/version: *//' | cut -d+ -f1)" >> "$GITHUB_OUTPUT"
+
       - name: Build web
-        run: flutter build web --wasm --base-href /enfr/ --no-web-resources-cdn
+        run: flutter build web --wasm --base-href /enfr/ --no-web-resources-cdn --build-number=${{ github.run_number }} --dart-define=APP_VERSION=${{ steps.pkg_version.outputs.name }} --dart-define=APP_BUILD_NUMBER=${{ github.run_number }}
 
       - name: Deploy to gh-pages branch
         if: github.event_name == 'push'
