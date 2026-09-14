@@ -17,20 +17,21 @@ builds the web app with `--wasm` and deploys it to the `gh-pages` branch (GitHub
 Pages is configured to serve from that branch). The wasm build ships a JS
 fallback alongside it, so browsers without WebAssembly GC support still work.
 
-The Flutter SDK version is pinned in `.flutter-version` at the repo root. CI
-reads that file, so the SDK never floats to a new release on its own. To upgrade,
-change that one file and regenerate `pubspec.lock`.
+The Flutter SDK version is pinned in `.fvmrc` at the repo root (managed via
+[fvm](https://fvm.app)). CI reads that file, so the SDK never floats to a new
+release on its own. To upgrade, change that one file and regenerate
+`pubspec.lock`.
 
 ## Running locally
 
 ```bash
-flutter run -d chrome
+fvm flutter run -d chrome
 ```
 
 ## Release build
 
 ```bash
-flutter build web --wasm --base-href /enfr/ --no-web-resources-cdn
+fvm flutter build web --wasm --base-href /enfr/ --no-web-resources-cdn
 ```
 
 ## Getting Started

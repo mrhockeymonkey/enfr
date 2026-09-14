@@ -15,11 +15,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # .flutter-version is the single source of truth for the SDK version,
+      # .fvmrc is the single source of truth for the SDK version,
       # shared with .claude/hooks/session-start.sh
       - name: Read pinned Flutter version
         id: flutter
-        run: echo "version=$(tr -d '[:space:]' < .flutter-version)" >> "$GITHUB_OUTPUT"
+        run: echo "version=$(python3 -c "import json;print(json.load(open('.fvmrc'))['flutter'])")" >> "$GITHUB_OUTPUT"
 
       - uses: subosito/flutter-action@v2
         with:
@@ -29,16 +29,14 @@ jobs:
 
       - name: Install dependencies
         run: flutter pub get --enforce-lockfile
-        working-directory: enfr
 
       - name: Build web
         run: flutter build web --wasm --base-href /enfr/ --no-web-resources-cdn
-        working-directory: enfr
 
       - name: Deploy to gh-pages branch
         if: github.event_name == 'push'
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: enfr/build/web
+          publish_dir: build/web
           publish_branch: gh-pages

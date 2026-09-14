@@ -2,12 +2,12 @@
 
 ## Project Structure
 
-**Web-only** Flutter app in `enfr/` subdirectory. GitHub Pages deployment at `https://mrhockeymonkey.github.io/enfr`. There are no `android/` or `ios/` targets — web is the only supported platform.
+**Web-only** Flutter app at the repo root. GitHub Pages deployment at `https://mrhockeymonkey.github.io/enfr`. There are no `android/` or `ios/` targets — web is the only supported platform.
 
-- `enfr/lib/` — Dart source
-- `enfr/web/` — Web-specific files (index.html, flutter_bootstrap.js)
-- `enfr/assets/verbs.yaml` — Verb conjugation data
-- `.flutter-version` — Pinned Flutter SDK version (see below)
+- `lib/` — Dart source
+- `web/` — Web-specific files (index.html, flutter_bootstrap.js)
+- `assets/verbs.yaml` — Verb conjugation data
+- `.fvmrc` — Pinned Flutter SDK version, managed via fvm (see below)
 - `.github/workflows/build.yml` — CI: builds web with `--wasm --base-href /enfr/ --no-web-resources-cdn` and deploys to `gh-pages` branch
 
 ## Testing the App Locally with Playwright MCP
@@ -18,12 +18,12 @@ The Playwright MCP tools (`mcp__playwright__browser_*`) are the primary way to g
 
 For local testing (no base-href needed):
 ```bash
-cd enfr && flutter build web --no-web-resources-cdn
+flutter build web --no-web-resources-cdn
 ```
 
 For a production-equivalent build matching GitHub Pages:
 ```bash
-cd enfr && flutter build web --wasm --base-href /enfr/ --no-web-resources-cdn
+flutter build web --wasm --base-href /enfr/ --no-web-resources-cdn
 ```
 
 `--no-web-resources-cdn` bundles Flutter's web assets (fonts, CanvasKit) into the build output instead of pulling them from Google CDNs at runtime, so the app runs in restricted-network / air-gapped environments.
@@ -31,7 +31,7 @@ cd enfr && flutter build web --wasm --base-href /enfr/ --no-web-resources-cdn
 ### 3. Start a local HTTP server
 
 ```bash
-python3 -m http.server 8080 --directory enfr/build/web &
+python3 -m http.server 8080 --directory build/web &
 ```
 
 Verify it's up: `curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/` should return `200`.
@@ -74,7 +74,7 @@ watch for that when adding packages.
 
 ## CanvasKit: Local vs CDN
 
-`enfr/web/flutter_bootstrap.js` forces local CanvasKit:
+`web/flutter_bootstrap.js` forces local CanvasKit:
 
 ```js
 _flutter.loader.load({
@@ -88,19 +88,20 @@ Without this, Flutter loads CanvasKit from `gstatic.com` CDN. If that fails (net
 
 ## Flutter SDK Version Pin
 
-`.flutter-version` at the repo root holds the exact SDK version (e.g. `3.47.2`) and is the single source of truth:
+`.fvmrc` at the repo root (managed via [fvm](https://fvm.app), format `{"flutter": "3.47.2"}`) holds the exact SDK version and is the single source of truth:
 
 - `.claude/hooks/session-start.sh` reads it and clones that exact tag into `/opt/flutter-<version>`. The install directory is version-named, so bumping the pin installs a fresh SDK rather than reusing a stale one.
 - `.github/workflows/build.yml` reads it into a step output and feeds it to `subosito/flutter-action`.
+- Locally, `fvm` itself reads it — use `fvm flutter ...` for day-to-day dev so your SDK matches the pin exactly.
 
-Nothing tracks `stable`, so a new Flutter release is never picked up automatically. **To upgrade:** edit `.flutter-version`, run `flutter clean && flutter pub get`, and commit the regenerated `enfr/pubspec.lock` — CI runs `flutter pub get --enforce-lockfile` and will fail if the lockfile wasn't refreshed.
+Nothing tracks `stable`, so a new Flutter release is never picked up automatically. **To upgrade:** edit `.fvmrc` (or `fvm use <version>`), run `flutter clean && flutter pub get`, and commit the regenerated `pubspec.lock` — CI runs `flutter pub get --enforce-lockfile` and will fail if the lockfile wasn't refreshed.
 
 ## CI / Deployment
 
 Merges to `main` trigger `.github/workflows/build.yml` which:
-1. Reads the pinned SDK version from `.flutter-version`
+1. Reads the pinned SDK version from `.fvmrc`
 2. Installs dependencies with `flutter pub get --enforce-lockfile`
 3. Builds with `flutter build web --wasm --base-href /enfr/ --no-web-resources-cdn`
-4. Deploys `enfr/build/web/` to the `gh-pages` branch via `peaceiris/actions-gh-pages`
+4. Deploys `build/web/` to the `gh-pages` branch via `peaceiris/actions-gh-pages`
 
 GitHub Pages serves from the `gh-pages` branch root.
