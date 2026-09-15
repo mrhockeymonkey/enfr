@@ -1,5 +1,6 @@
 import 'package:enfr/chat_reply.dart';
 import 'package:enfr/constants/app_version.dart';
+import 'package:enfr/constants/prompts.dart';
 import 'package:enfr/data/prompt_repository.dart';
 import 'package:enfr/services/api_key_service.dart';
 import 'package:enfr/services/model_preference_service.dart';
@@ -107,16 +108,25 @@ class _AskChatPageState extends State<AskChatPage> {
     final model = await ModelPreferenceService.loadModel();
     final client = MistralAIClient(apiKey: key);
 
-    final systemPrompt = _direction == TranslationDirection.enToFr
-        ? PromptRepository.translatePrompt
-        : PromptRepository.translateToEnglishPrompt;
+    final List<dynamic> messages = _direction == TranslationDirection.enToFr
+        ? [
+            UserMessage(
+              content: UserMessageContent.string(
+                PromptRepository.translatePrompt
+                    .replaceFirst(kTranslatePromptInputPlaceholder, content),
+              ),
+            ),
+          ]
+        : [
+            SystemMessage(
+              content: Content.string(PromptRepository.translateToEnglishPrompt),
+            ),
+            UserMessage(content: UserMessageContent.string(content)),
+          ];
 
     var request = ChatCompletionRequest(
       model: model,
-      messages: [
-        SystemMessage(content: Content.string(systemPrompt)),
-        UserMessage(content: UserMessageContent.string(content)),
-      ],
+      messages: messages,
     );
 
     final stream = client.chatStream(request: request);
