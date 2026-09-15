@@ -108,25 +108,19 @@ class _AskChatPageState extends State<AskChatPage> {
     final model = await ModelPreferenceService.loadModel();
     final client = MistralAIClient(apiKey: key);
 
-    final List<dynamic> messages = _direction == TranslationDirection.enToFr
-        ? [
-            UserMessage(
-              content: UserMessageContent.string(
-                PromptRepository.translatePrompt
-                    .replaceFirst(kTranslatePromptInputPlaceholder, content),
-              ),
-            ),
-          ]
-        : [
-            SystemMessage(
-              content: Content.string(PromptRepository.translateToEnglishPrompt),
-            ),
-            UserMessage(content: UserMessageContent.string(content)),
-          ];
+    final promptTemplate = _direction == TranslationDirection.enToFr
+        ? PromptRepository.translatePrompt
+        : PromptRepository.translateToEnglishPrompt;
 
     var request = ChatCompletionRequest(
       model: model,
-      messages: messages,
+      messages: [
+        UserMessage(
+          content: UserMessageContent.string(
+            promptTemplate.replaceFirst(kTranslatePromptInputPlaceholder, content),
+          ),
+        ),
+      ],
     );
 
     final stream = client.chatStream(request: request);
