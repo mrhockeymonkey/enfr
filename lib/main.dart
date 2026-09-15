@@ -1,3 +1,4 @@
+import 'package:enfr/data/prompt_repository.dart';
 import 'package:enfr/data/verb-provider.dart';
 import 'package:enfr/pages/ask_chat/ask_page.dart';
 import 'package:enfr/pages/journal/journal_page.dart';
@@ -6,7 +7,9 @@ import 'package:enfr/pages/verbs/verbs_page.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await PromptRepository.initAsync();
   runApp(
     MultiProvider(
       providers: [

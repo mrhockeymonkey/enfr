@@ -1,6 +1,6 @@
 import 'package:enfr/chat_reply.dart';
 import 'package:enfr/constants/app_version.dart';
-import 'package:enfr/constants/prompts.dart';
+import 'package:enfr/data/prompt_repository.dart';
 import 'package:enfr/services/api_key_service.dart';
 import 'package:enfr/services/model_preference_service.dart';
 import 'package:flutter/material.dart';
@@ -108,8 +108,8 @@ class _AskChatPageState extends State<AskChatPage> {
     final client = MistralAIClient(apiKey: key);
 
     final systemPrompt = _direction == TranslationDirection.enToFr
-        ? kTranslatePrompt
-        : kTranslateToEnglishPrompt;
+        ? PromptRepository.translatePrompt
+        : PromptRepository.translateToEnglishPrompt;
 
     var request = ChatCompletionRequest(
       model: model,
@@ -139,7 +139,7 @@ class _AskChatPageState extends State<AskChatPage> {
     var request = ChatCompletionRequest(
       model: model,
       messages: [
-        SystemMessage(content: Content.string(kExplainPrompt)),
+        SystemMessage(content: Content.string(PromptRepository.explainPrompt)),
         UserMessage(content: UserMessageContent.string(content)),
       ],
     );

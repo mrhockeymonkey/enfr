@@ -1,4 +1,5 @@
 import 'package:enfr/constants/prompts.dart';
+import 'package:enfr/data/prompt_repository.dart';
 import 'package:enfr/models/correction.dart';
 import 'package:enfr/services/api_key_service.dart';
 import 'package:enfr/services/correction_parser.dart';
@@ -20,7 +21,7 @@ class CorrectionService {
     }
     final model = await ModelPreferenceService.loadModel();
 
-    final prompt = kCorrectionPrompt
+    final prompt = PromptRepository.correctionPrompt
         .replaceFirst(kCorrectionPromptEntryPlaceholder, content)
         .replaceFirst(
           kCorrectionPromptPreviousPlaceholder,
