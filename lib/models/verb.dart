@@ -20,7 +20,12 @@ class Verb {
     for (final tense in VerbTense.values) {
       final raw = json[tense.code];
       if (raw is! List || raw.length != tense.slots.length) continue;
-      forms[tense] = raw.map((f) => f == 'NA' ? null : f as String).toList();
+      final list = [
+        for (final f in raw)
+          if (f is String && f != 'NA' && f.isNotEmpty) f else null
+      ];
+      if (list.every((f) => f == null)) continue;
+      forms[tense] = list;
     }
     if (forms.isEmpty) return null;
     return Verb(

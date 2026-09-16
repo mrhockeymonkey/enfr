@@ -60,6 +60,12 @@ class _QuestionCardState extends State<QuestionCard>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final question = widget.question;
+    final errorBorder = _attempts > 0 && !_revealed
+        ? OutlineInputBorder(
+            borderRadius: BorderRadius.circular(25.0),
+            borderSide: BorderSide(color: theme.colorScheme.error, width: 2),
+          )
+        : null;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -102,12 +108,8 @@ class _QuestionCardState extends State<QuestionCard>
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(25.0),
               ),
-              enabledBorder: _attempts > 0 && !_revealed
-                  ? OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(25.0),
-                      borderSide: BorderSide(color: theme.colorScheme.error),
-                    )
-                  : null,
+              enabledBorder: errorBorder,
+              focusedBorder: errorBorder,
             ),
             onSubmitted: _submit,
           ),

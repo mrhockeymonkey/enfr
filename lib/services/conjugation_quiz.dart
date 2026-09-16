@@ -42,6 +42,7 @@ class ConjugationQuiz {
 
   Verb? _currentVerb;
   int _asked = 0;
+  (VerbTense, int)? _last;
 
   ConjugationQuiz({
     required List<Verb> verbs,
@@ -64,9 +65,16 @@ class ConjugationQuiz {
     }
     final verb = _currentVerb!;
     final tenses = _tenses.where((t) => verb.slotsFor(t).isNotEmpty).toList();
-    final tense = tenses[_random.nextInt(tenses.length)];
-    final slots = verb.slotsFor(tense);
-    final slot = slots[_random.nextInt(slots.length)];
+    final choices = tenses.fold(0, (n, t) => n + verb.slotsFor(t).length);
+    (VerbTense, int) pick;
+    // Avoid asking the exact same form twice in a row when there is a choice.
+    do {
+      final tense = tenses[_random.nextInt(tenses.length)];
+      final slots = verb.slotsFor(tense);
+      pick = (tense, slots[_random.nextInt(slots.length)]);
+    } while (choices > 1 && pick == _last);
+    _last = pick;
+    final (tense, slot) = pick;
     _asked++;
     return ConjugationQuestion(
       verb: verb,
