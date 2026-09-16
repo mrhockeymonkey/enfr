@@ -1,38 +1,46 @@
-import 'package:enfr/models/tense.dart';
-import 'package:yaml/yaml.dart';
+import 'package:enfr/models/verb_tense.dart';
+import 'package:enfr/models/verb_tier.dart';
 
 class Verb {
+  final String infinitive;
+  final VerbTier tier;
+  final double zipf;
+  final Map<VerbTense, List<String?>> forms;
+
   const Verb({
     required this.infinitive,
-    required this.meaning,
-    this.present,
-    this.futur,
-    this.passeCompose,
-    this.imparfait,
+    required this.tier,
+    required this.zipf,
+    required this.forms,
   });
 
-  final String infinitive;
-  final String meaning;
-  final Tense? present;
-  final Tense? futur;
-  final Tense? passeCompose;
-  final Tense? imparfait;
-
-  factory Verb.fromYaml(YamlMap map) {
-    var i = map['inf'] as String;
-    var m = map['eng'] as String;
-    var present = map['pre'] as String?;
-    var futur = map['fut'] as String?;
-    var passeCompose = map['pas'] as String?;
-    var imparfait = map['imp'] as String?;
-
+  static Verb? fromJson(
+      String infinitive, VerbTier tier, Map<String, dynamic> json) {
+    final forms = <VerbTense, List<String?>>{};
+    for (final tense in VerbTense.values) {
+      final raw = json[tense.code];
+      if (raw is! List || raw.length != tense.slots.length) continue;
+      forms[tense] = raw.map((f) => f == 'NA' ? null : f as String).toList();
+    }
+    if (forms.isEmpty) return null;
     return Verb(
-      infinitive: i,
-      meaning: m,
-      present: Tense.fromStr(present),
-      futur: Tense.fromStr(futur),
-      passeCompose: Tense.fromStr(passeCompose),
-      imparfait: Tense.fromStr(imparfait),
+      infinitive: infinitive,
+      tier: tier,
+      zipf: (json['zipf'] as num?)?.toDouble() ?? 0,
+      forms: forms,
     );
+  }
+
+  bool hasTense(VerbTense tense) => forms.containsKey(tense);
+
+  String? form(VerbTense tense, int slot) => forms[tense]?[slot];
+
+  List<int> slotsFor(VerbTense tense) {
+    final list = forms[tense];
+    if (list == null) return const [];
+    return [
+      for (var i = 0; i < list.length; i++)
+        if (list[i] != null) i
+    ];
   }
 }

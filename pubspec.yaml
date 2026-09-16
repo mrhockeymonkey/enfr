@@ -37,9 +37,7 @@ dependencies:
   mistralai_client_dart: ^1.1.0
   gpt_markdown: ^1.0.20
   flutter_math_fork: 0.7.4 # See isse https://github.com/Infinitix-LLC/gpt_markdown/issues/62
-  provider: ^6.1.5
   collection: ^1.19.1
-  yaml: ^3.1.3
   flutter_secure_storage: ^11.0.0
 
 dev_dependencies:
@@ -66,8 +64,12 @@ flutter:
 
   # To add assets to your application, add an assets section, like this:
   assets:
-    - assets/verbs.yaml
     - assets/prompts/
+    - assets/verbs/verbs_essential.json
+    - assets/verbs/verbs_common.json
+    - assets/verbs/verbs_moderate.json
+    - assets/verbs/verbs_uncommon.json
+    - assets/verbs/verbs_rare.json
 
   # Bundle Roboto locally so the app does not fetch it from fonts.gstatic.com
   # at runtime. `--no-web-resources-cdn` alone does not prevent this fetch

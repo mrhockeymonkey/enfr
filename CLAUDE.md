@@ -6,7 +6,7 @@
 
 - `lib/` — Dart source
 - `web/` — Web-specific files (index.html, flutter_bootstrap.js)
-- `assets/verbs.yaml` — Verb conjugation data
+- `assets/verbs/verbs_*.json` — Tiered verb conjugation data (essential → rare, by frequency); format documented in `assets/verbs/README_verb_tiers.md`. Loaded on demand per tier by `VerbRepository` (`lib/data/verb_repository.dart`)
 - `assets/prompts/*.md` — LLM system prompt templates, loaded once at app start via `PromptRepository` (`lib/data/prompt_repository.dart`) before `runApp`
 - `.fvmrc` — Pinned Flutter SDK version, managed via fvm (see below)
 - `.github/workflows/build.yml` — CI: builds web with `--wasm --base-href /enfr/ --no-web-resources-cdn` and deploys to `gh-pages` branch

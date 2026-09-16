@@ -1,23 +1,14 @@
 import 'package:enfr/data/prompt_repository.dart';
-import 'package:enfr/data/verb-provider.dart';
 import 'package:enfr/pages/ask_chat/ask_page.dart';
 import 'package:enfr/pages/journal/journal_page.dart';
 import 'package:enfr/pages/settings/settings_page.dart';
 import 'package:enfr/pages/verbs/verbs_page.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await PromptRepository.initAsync();
-  runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (context) => VerbProvider()),
-      ],
-      child: const MyApp(),
-    ),
-  );
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -40,10 +31,9 @@ class MyApp extends StatelessWidget {
           iconColor: scheme.onSurfaceVariant,
         ),
       ),
-      //home: const VerbsPage(),
       home: const AskChatPage(),
       routes: {
-        '/verbs': (context) => VerbsPage(),
+        '/verbs': (context) => const VerbsPage(),
         '/journal': (context) => const JournalPage(),
         '/settings': (context) => const SettingsPage(),
       },
