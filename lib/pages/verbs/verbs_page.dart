@@ -2,6 +2,7 @@ import 'package:enfr/data/verb_repository.dart';
 import 'package:enfr/models/verb.dart';
 import 'package:enfr/models/verb_quiz_settings.dart';
 import 'package:enfr/pages/verbs/widgets/question_card.dart';
+import 'package:enfr/pages/verbs/widgets/verb_conjugation_sheet.dart';
 import 'package:enfr/pages/verbs/widgets/verb_quiz_settings_sheet.dart';
 import 'package:enfr/services/conjugation_quiz.dart';
 import 'package:enfr/services/verb_quiz_settings_service.dart';
@@ -76,6 +77,15 @@ class _VerbsPageState extends State<VerbsPage> {
     );
   }
 
+  void _openConjugations() {
+    final verb = _question!.verb;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => VerbConjugationSheet(verb: verb),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -83,6 +93,11 @@ class _VerbsPageState extends State<VerbsPage> {
         title: const Text('Verbs'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.table_chart),
+            tooltip: 'Show conjugations',
+            onPressed: _question == null ? null : _openConjugations,
+          ),
           IconButton(
             icon: const Icon(Icons.settings),
             tooltip: 'Quiz settings',
