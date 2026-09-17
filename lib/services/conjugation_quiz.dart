@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:enfr/models/auxiliary.dart';
 import 'package:enfr/models/verb.dart';
 import 'package:enfr/models/verb_tense.dart';
 import 'package:enfr/services/verb_selector.dart';
@@ -10,26 +11,53 @@ class ConjugationQuestion {
   final int slot;
   final int number;
 
+  /// Gender and number the answer must agree with. Set only for a compound
+  /// tense of a verb whose participle agrees with the subject; the prompt then
+  /// names the gender ("Elle", "Ils", "Je (f)") so exactly one form is right.
+  final Agreement? agreement;
+
   const ConjugationQuestion({
     required this.verb,
     required this.tense,
     required this.slot,
     required this.number,
+    this.agreement,
   });
 
-  String get answer => verb.form(tense, slot)!;
+  String get answer => verb.form(tense, slot, agreement: agreement)!;
 
   String get prompt {
     final label = tense.slots[slot];
-    if (tense.subjectPrefix) {
-      final subject = label[0].toUpperCase() + label.substring(1);
-      return '$subject _____ (${tense.displayName})';
+    if (!tense.subjectPrefix) {
+      return '_____ (${tense.displayName}, $label)';
     }
-    return '_____ (${tense.displayName}, $label)';
+    return '${_subject(label)}_____ (${tense.displayName})';
   }
 
-  bool matches(String input) =>
-      input.trim().toLowerCase() == answer.toLowerCase();
+  static const _vowels = 'aeiouàâäéèêëîïôöùûü';
+
+  /// The capitalised subject and the space (or elision) before the blank:
+  /// "Nous ", "Elle ", "Je (f) ", or "J'" when the answer starts with a vowel.
+  String _subject(String label) {
+    final agreement = this.agreement;
+    final subject = agreement == null
+        ? label
+        : switch (slot) {
+            2 => agreement.feminine ? 'elle' : 'il',
+            5 => agreement.feminine ? 'elles' : 'ils',
+            _ => '$label (${agreement.label})',
+          };
+    if (slot == 0 && _vowels.contains(answer[0])) return "J'";
+    return '${subject[0].toUpperCase()}${subject.substring(1)} ';
+  }
+
+  bool matches(String input) => _normalise(input) == _normalise(answer);
+
+  static String _normalise(String s) => s
+      .trim()
+      .toLowerCase()
+      .replaceAll('’', "'")
+      .replaceAll(RegExp(r'\s+'), ' ');
 }
 
 class ConjugationQuiz {
@@ -42,7 +70,7 @@ class ConjugationQuiz {
 
   Verb? _currentVerb;
   int _asked = 0;
-  (VerbTense, int)? _last;
+  (VerbTense, int, Agreement?)? _last;
 
   ConjugationQuiz({
     required List<Verb> verbs,
@@ -66,21 +94,28 @@ class ConjugationQuiz {
     final verb = _currentVerb!;
     final tenses = _tenses.where((t) => verb.slotsFor(t).isNotEmpty).toList();
     final choices = tenses.fold(0, (n, t) => n + verb.slotsFor(t).length);
-    (VerbTense, int) pick;
+    (VerbTense, int, Agreement?) pick;
     // Avoid asking the exact same form twice in a row when there is a choice.
     do {
       final tense = tenses[_random.nextInt(tenses.length)];
       final slots = verb.slotsFor(tense);
-      pick = (tense, slots[_random.nextInt(slots.length)]);
+      final slot = slots[_random.nextInt(slots.length)];
+      Agreement? agreement;
+      if (tense.compound && verb.participleAgrees) {
+        final options = Agreement.validFor(slot);
+        agreement = options[_random.nextInt(options.length)];
+      }
+      pick = (tense, slot, agreement);
     } while (choices > 1 && pick == _last);
     _last = pick;
-    final (tense, slot) = pick;
+    final (tense, slot, agreement) = pick;
     _asked++;
     return ConjugationQuestion(
       verb: verb,
       tense: tense,
       slot: slot,
       number: _asked,
+      agreement: agreement,
     );
   }
 }

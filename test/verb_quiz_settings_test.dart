@@ -9,6 +9,7 @@ void main() {
       expect(VerbQuizSettings.defaults.tiers, {VerbTier.essential});
       expect(VerbQuizSettings.defaults.tenses, {
         VerbTense.present,
+        VerbTense.passeCompose,
         VerbTense.imparfait,
         VerbTense.futur,
         VerbTense.pastParticiple,

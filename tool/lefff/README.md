@@ -1,0 +1,121 @@
+# Lefff verb list generator
+
+`build_lefff_verbs.py` builds the app's five verb tier files,
+`assets/verbs/verbs_<tier>.json`, in which pronominal verbs get their own entry
+(`lever` and `se lever` are two keys). It reads the raw Lefff lexicon, which is not
+committed because it is 174 MB uncompressed. The file format is documented in
+`assets/verbs/README_verb_tiers.md`.
+
+## Getting the lexicon
+
+1. Download `lefff-3.4.0.elex.tar.gz` from the Lefff project
+   (<https://gitlab.inria.fr/almanach/alexina/lefff>, licence LGPL-LR).
+2. Put it in `tool/lefff/data/` (git-ignored). The script accepts either the
+   `.tar.gz` archive or the extracted `lefff-3.4.elex` file.
+
+## Running
+
+```bash
+python3 tool/lefff/build_lefff_verbs.py \
+  --elex tool/lefff/data/lefff-3.4.0.elex.tar.gz \
+  --tiers assets/verbs --out-dir assets/verbs \
+  --verify --report
+```
+
+Python 3.11+, standard library only. Runs in under ten seconds.
+
+- Conjugation forms and zipf scores are **read from the tier files in `--tiers`** and
+  the new tier files are written to `--out-dir`; both default to `assets/verbs`, so a
+  rerun regenerates the files in place from their own previous version. The loader
+  recovers the bare paradigm of a verb that is keyed pronominally (`s'évanouir`) by
+  stripping the composed pronoun.
+- `--verify` also reads the 946k inflected rows and checks every form in the tier
+  files against the lexicon. Expect exactly one mismatch (`vouloir` imperative
+  `veuillons`, a quirk inherited from the original data).
+- `--report` prints the mute/aspirated-h decision for every h-initial pronominal
+  verb, and flags where Lefff's own spelling (`se h…` vs `s'h…`) disagrees with the
+  script's aspirated-h list.
+
+The committed tier files were produced from the script's previous single-file output
+by a one-off split that used `auxiliary_for` and `write_tier_files` from this module,
+rather than by rerunning it against the lexicon; a rerun produces the same files.
+
+## What the script reads
+
+Each `.elex` row is nine tab-separated columns, Latin-1 encoded:
+
+```
+form  weight  cat  features  lemma_id  morph_label  morph_tag  redistribution  inflection_class
+```
+
+Only `cat == v` rows matter. The infinitive rows (`morph_tag == W`) give one row per
+verb *sense*, e.g.
+
+```
+lever  100  v  [pred="lever_____1<Suj:(cln|sn),Obj:(cla|sn)>",@pers,cat=v,@W]           lever_____1  Infinitive  W  %actif     v-er:std
+lever  100  v  [pred="lever_____1<Suj:sn>se",@pers,@se_moyen,@être,cat=v,@W]           lever_____1  Infinitive  W  %se_moyen  v-er:std
+lever  100  v  [pred="se lever_____2<Suj:(cln|sn)>",@pers,@pron,@être,cat=v,@W]        lever_____2  Infinitive  W  %actif     v-er:std
+```
+
+| Signal in the row | Meaning | Used for |
+|---|---|---|
+| `@pron` feature | inherently pronominal sense: the pronoun is part of the lexeme (`se lever` = get up, `se souvenir`) | `pronominal_kind` essential / lexicalised, `senses.pronominal` |
+| `%se_moyen*` redistribution | reflexive / reciprocal / middle / passive reading derived from a transitive sense (`se laver`) | `pronominal_kind` reflexive, `senses.reflexive` |
+| neither | ordinary active sense | whether a plain entry exists, `senses.active` |
+| `@impers` | impersonal sense (`il s'agit`, `il faut`) | `impersonal`, `impersonal_only` |
+| `@être`, `@être_possible` | auxiliary in compound tenses (per sense, sparsely marked) | cross-check of `ETRE_VERBS` only |
+| `(se) X` spelling of the pred | pronoun optional for that sense | `pronoun_optional` |
+| `s'h…` / `se h…` spelling of the pred | mute vs aspirated h | cross-checked against the script's aspirated-h list |
+| `Objde:`, `Objà:`, `Obl:(sur-sn)` in the frame | governed preposition | `prepositions` |
+| `lemma_id` like `aller___be_about_to__1` | English gloss (145 senses only) | `glosses` |
+
+Conjugation forms are **not** re-derived from the lexicon. They come from the tier
+files, as does `zipf`. Pronominal entries inherit the base verb's zipf, so both land
+in the same tier file.
+
+## Auxiliary
+
+`meta.auxiliary` is `être` for every pronominal verb and for the plain verbs in the
+curated `ETRE_VERBS` set (the "maison d'être" verbs and their common derivatives),
+`avoir` for everything else. Verbs that take either auxiliary depending on
+transitivity (sortir, monter, descendre, passer, rentrer, retourner) are in the set,
+since the intransitive être form is the one learners meet first.
+
+Lefff marks `@être` per sense and very sparsely (only five verbs come out as
+être-only; `partir` has two marked and two unmarked senses), so its marks are not
+used for the field. The script logs every verb where the marks and the curated set
+disagree, as a review aid.
+
+## Pronoun composition
+
+Lefff stores bare forms; the reflexive pronoun is added by rule:
+
+| Code | Rule | Example |
+|---|---|---|
+| P I F J C S T | `me/te/se/nous/vous/se` + form, elided to `m'/t'/s'` before a vowel or mute h | `je me lève`, `je m'évanouis`, `je me hâte` |
+| Y | postposed stressed pronoun with hyphen in the tu/nous/vous slots | `lève-toi`, `levons-nous`, `levez-vous` |
+| G | `se` / `s'` + present participle | `se levant`, `s'évanouissant` |
+| W | the entry key | `se lever` |
+| K | unchanged | `levé, levés, levée, levées` |
+
+Elision decision: vowel-initial verbs always elide; `y` never does (`se yodiser`);
+h-initial verbs elide unless they are in the script's `ASPIRATED_H` set.
+
+## Design note: defective verbs are excluded
+
+A few Lefff verbs are genuinely defective in French: only the infinitive, and
+sometimes the present participle, are ever used (`accroire`, `quérir`, `ravoir`,
+`parfaire`, ...). `has_quizzable_form` checks whether a verb has at least one form
+in the 9 tenses the app quizzes on (`QUIZZABLE_CODES`, mirroring
+`lib/models/verb_tense.dart`); if not, both its plain and any pronominal entry are
+skipped, since there's nothing for a conjugation quiz to ask.
+
+## Known limitations
+
+- Seven keys in the original tier files (`voici`, `voilà`, `revoici`, `revoilà`,
+  `pacser`, `uw`, `uwSe`) do not exist in the lexicon and were dropped. `_error` in
+  the lexicon is skipped.
+- Nine verbs carry `@pron` on a sense whose pred is not spelled with `se`
+  (`attendre`, `tenir`, `étonner`, ...). The feature is trusted over the spelling.
+- Lefff spells five h-initial verbs with `se h…` where standard usage elides
+  (`s'hypertrophier`). The script's list wins; `--report` shows them.
