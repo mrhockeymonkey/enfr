@@ -7,6 +7,8 @@ reflexive reading (``%se_moyen*`` redistribution), and emits one entry per plain
 verb (``lever``) plus one per pronominal verb (``se lever``). Conjugation forms and
 zipf scores are taken from the existing ``assets/verbs/verbs_*.json`` tier files,
 which are themselves Lefff data; the reflexive pronoun is composed in by rule.
+Genuinely defective verbs (``accroire``, ``quérir``, ...) that have no form in any
+quizzable tense are excluded by design; see ``has_quizzable_form``.
 
 Usage:
     python3 tool/lefff/build_lefff_verbs.py \
@@ -73,6 +75,24 @@ PREP_VAL_RE = re.compile(r"^(?P<prep>[^-]+)-s(?:n|inf|compl|adj|qcompl)$")
 NOT_PREPS = {"loc", "cln", "cla", "cld", "y", "en", "sn", "sinf", "scompl", "qcompl", "tps"}
 
 ZIPF_TIERS = [(5.0, "essential"), (4.0, "common"), (3.0, "moderate"), (1.5, "uncommon")]
+
+# The 9 tenses the app actually quizzes on (lib/models/verb_tense.dart). G (present
+# participle) and W (infinitive) are reference forms only, never quizzed.
+QUIZZABLE_CODES = {"P", "I", "F", "J", "C", "S", "T", "Y", "K"}
+
+
+def has_quizzable_form(forms: dict[str, list]) -> bool:
+    """True if at least one quizzable tense has a real (non-NA) form.
+
+    A handful of Lefff verbs (accroire, quérir, ravoir, parfaire, ...) are
+    genuinely defective in French: only the infinitive, and sometimes the
+    present participle, are ever used. Those verbs are excluded from this list
+    by design, since a conjugation quiz has nothing to ask about them.
+    """
+    return any(
+        isinstance(forms.get(c), list) and any(f != "NA" for f in forms[c])
+        for c in QUIZZABLE_CODES
+    )
 
 
 def tier_for(zipf: float) -> str:
@@ -348,6 +368,7 @@ def build_entries(verbs: dict[str, VerbInfo], tiers: dict[str, tuple[dict, str]]
     h_decisions: dict[str, str] = {}
     counts = collections.Counter()
     missing_forms: list[str] = []
+    defective: list[str] = []
 
     for inf in sorted(verbs):
         info = verbs[inf]
@@ -361,8 +382,10 @@ def build_entries(verbs: dict[str, VerbInfo], tiers: dict[str, tuple[dict, str]]
             c: [f if isinstance(f, str) and f else "NA" for f in tier_entry[c]]
             for c in TENSE_CODES if isinstance(tier_entry.get(c), list)
         }
-        if not base_forms:
-            missing_forms.append(inf)
+        if not has_quizzable_form(base_forms):
+            # Defective verb (only W, sometimes G): excluded by design, for this
+            # infinitive and any pronominal form derived from it alike.
+            defective.append(inf)
             continue
 
         pron_key = None
@@ -428,6 +451,9 @@ def build_entries(verbs: dict[str, VerbInfo], tiers: dict[str, tuple[dict, str]]
     if missing_forms:
         log.append(f"{len(missing_forms)} elex infinitive(s) have no usable forms in the tier files "
                    f"and were skipped: {', '.join(missing_forms[:20])}")
+    if defective:
+        log.append(f"{len(defective)} defective verb(s) (no form in any quizzable tense) were "
+                   f"excluded by design: {', '.join(defective)}")
     unused = sorted(set(tiers) - set(verbs))
     if unused:
         log.append(f"{len(unused)} tier-file key(s) do not exist in the elex and were not carried over: "

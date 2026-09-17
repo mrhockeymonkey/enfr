@@ -11,20 +11,20 @@ in the app loads it yet.
 
 | | Count |
 |---|---|
-| Entries | 11,336 |
-| Plain verbs (`lever`) | 7,686 |
-| Pronominal verbs (`se lever`) | 3,650 |
+| Entries | 11,323 |
+| Plain verbs (`lever`) | 7,675 |
+| Pronominal verbs (`se lever`) | 3,648 |
 | of which `essential` | 134 |
 | of which `lexicalised` | 1,059 |
-| of which `reflexive` | 2,457 |
+| of which `reflexive` | 2,455 |
 
 ## Shape
 
 ```json
 {
   "source": "...", "lefff_version": "3.4", "generated_by": "tool/lefff/build_lefff_verbs.py",
-  "verb_count": 11336,
-  "counts": {"plain": 7686, "pronominal": 3650, "essential": 134, "lexicalised": 1059, "reflexive": 2457},
+  "verb_count": 11323,
+  "counts": {"plain": 7675, "pronominal": 3648, "essential": 134, "lexicalised": 1059, "reflexive": 2455},
   "verbs": {
     "lever":    { "...tense codes...", "zipf": 4.54, "meta": { ... } },
     "se lever": { "...tense codes...", "zipf": 4.54, "meta": { ... } }
@@ -106,6 +106,17 @@ Elision follows the vowel / mute-h rule; aspirated-h verbs do not elide
 | `senses` | number of `active`, `pronominal` and `reflexive` senses |
 | `zipf_source` | the tier file the forms and zipf were copied from |
 
+## Design note: defective verbs are excluded
+
+A handful of French verbs are genuinely defective: only the infinitive, and
+sometimes the present participle, are ever used (`accroire`, `capeyer`,
+`clamecer`, `faseyer`, `langueyer`, `parfaire`, `quérir`, `raire`, `ravoir`,
+`stupéfaire`, `avenir`). They have no form in any of the nine tenses this list is
+meant to be quizzed on, so they carry nothing useful and are left out by design,
+rather than included as an entry with no conjugation to show. This applies to
+their pronominal forms as well (`se parfaire`, `se quérir`). See
+`has_quizzable_form` in `tool/lefff/build_lefff_verbs.py`.
+
 ## How this differs from the tier files
 
 - Seven non-verb keys in the tier files (`voici`, `voilà`, `revoici`, `revoilà`,
@@ -114,6 +125,3 @@ Elision follows the vowel / mute-h rule; aspirated-h verbs do not elide
   tier files list them bare (`évanouir`, `abstenir`, `envoler`).
 - Forms are otherwise identical to the tier files; `--verify` in the generator checks
   them against the lexicon.
-- 13 entries are infinitive-only defective verbs (`accroire`, `quérir`, `se parfaire`,
-  `ravoir`, ...). `Verb.fromJson` returns null for them, as it does for the same
-  verbs in the tier files, and `test/experimental_verbs_test.dart` allows for that.

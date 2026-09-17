@@ -79,6 +79,15 @@ Lefff stores bare forms; the reflexive pronoun is added by rule:
 Elision decision: vowel-initial verbs always elide; `y` never does (`se yodiser`);
 h-initial verbs elide unless they are in the script's `ASPIRATED_H` set.
 
+## Design note: defective verbs are excluded
+
+A few Lefff verbs are genuinely defective in French: only the infinitive, and
+sometimes the present participle, are ever used (`accroire`, `quérir`, `ravoir`,
+`parfaire`, ...). `has_quizzable_form` checks whether a verb has at least one form
+in the 9 tenses the app quizzes on (`QUIZZABLE_CODES`, mirroring
+`lib/models/verb_tense.dart`); if not, both its plain and any pronominal entry are
+skipped, since there's nothing for a conjugation quiz to ask.
+
 ## Known limitations
 
 - `auxiliary` reflects Lefff's per-sense `@être` marks, which are incomplete. `partir`

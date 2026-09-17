@@ -22,26 +22,16 @@ void main() {
 
   test('every entry loads through Verb.fromJson', () {
     expect(entries.length, json['verb_count']);
-    var loaded = 0;
     for (final entry in entries.entries) {
-      final value = entry.value as Map<String, dynamic>;
-      final verb = Verb.fromJson(entry.key, VerbTier.rare, value);
-      if (verb == null) {
-        // Infinitive-only defective verbs (accroire, ...) have no quizzable
-        // tense; the tier files carry the same entries and the loader drops them.
-        final hasQuizzableForm = VerbTense.values.any(
-            (t) => (value[t.code] as List?)?.any((f) => f != 'NA') ?? false);
-        expect(hasQuizzableForm, isFalse, reason: entry.key);
-        continue;
-      }
-      loaded++;
+      final verb = Verb.fromJson(
+          entry.key, VerbTier.rare, entry.value as Map<String, dynamic>);
+      expect(verb, isNotNull, reason: entry.key);
       expect(
-        VerbTense.values.any((t) => verb.slotsFor(t).isNotEmpty),
+        VerbTense.values.any((t) => verb!.slotsFor(t).isNotEmpty),
         isTrue,
         reason: entry.key,
       );
     }
-    expect(loaded, greaterThan(entries.length - 50));
   });
 
   test('base and pronominal links resolve within the file', () {
