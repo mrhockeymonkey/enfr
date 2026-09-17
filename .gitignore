@@ -37,3 +37,5 @@ migrate_working_dir/
 
 # FVM Version Cache
 .fvm/
+# Raw Lefff lexicon archive used by tool/lefff/build_lefff_verbs.py (too large to commit)
+/tool/lefff/data/
