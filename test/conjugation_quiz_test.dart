@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:enfr/models/auxiliary.dart';
 import 'package:enfr/models/verb.dart';
 import 'package:enfr/models/verb_tense.dart';
 import 'package:enfr/models/verb_tier.dart';
@@ -7,11 +8,19 @@ import 'package:enfr/services/conjugation_quiz.dart';
 import 'package:enfr/services/verb_selector.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-Verb _verb(String infinitive, Map<VerbTense, List<String?>> forms) => Verb(
+Verb _verb(
+  String infinitive,
+  Map<VerbTense, List<String?>> forms, {
+  Auxiliary auxiliary = Auxiliary.avoir,
+  bool pronominal = false,
+}) =>
+    Verb(
       infinitive: infinitive,
       tier: VerbTier.essential,
       zipf: 5,
       forms: forms,
+      auxiliary: auxiliary,
+      pronominal: pronominal,
     );
 
 final _parler = _verb('parler', {
@@ -45,6 +54,32 @@ final _finir = _verb('finir', {
     'finissent'
   ],
 });
+
+final _partir = _verb(
+  'partir',
+  {
+    VerbTense.present: ['pars', 'pars', 'part', 'partons', 'partez', 'partent'],
+    VerbTense.pastParticiple: ['parti', 'partis', 'partie', 'parties'],
+  },
+  auxiliary: Auxiliary.etre,
+);
+
+final _seLever = _verb(
+  'se lever',
+  {
+    VerbTense.present: [
+      'me lève',
+      'te lèves',
+      'se lève',
+      'nous levons',
+      'vous levez',
+      'se lèvent'
+    ],
+    VerbTense.pastParticiple: ['levé', 'levés', 'levée', 'levées'],
+  },
+  auxiliary: Auxiliary.etre,
+  pronominal: true,
+);
 
 final _onlyPasseSimple = _verb('gésir', {
   VerbTense.passeSimple: ['gus', 'gus', 'gut', 'gûmes', 'gûtes', 'gurent'],
@@ -81,6 +116,55 @@ void main() {
       expect(question.prompt, '_____ (participe passé, féminin pluriel)');
     });
 
+    test('prompt names the person after the blank for the imperative', () {
+      final question = ConjugationQuestion(
+        verb: _parler,
+        tense: VerbTense.imperatif,
+        slot: 1,
+        number: 1,
+      );
+      expect(question.prompt, '_____ (impératif, tu)');
+      expect(question.answer, 'parle');
+    });
+
+    test('prompt elides je before a vowel', () {
+      final question = ConjugationQuestion(
+        verb: _parler,
+        tense: VerbTense.passeCompose,
+        slot: 0,
+        number: 1,
+      );
+      expect(question.answer, 'ai parlé');
+      expect(question.prompt, "J'_____ (passé composé)");
+    });
+
+    test('prompt fixes the gender for an agreeing passé composé', () {
+      ConjugationQuestion question(Verb verb, int slot, Agreement agreement) =>
+          ConjugationQuestion(
+            verb: verb,
+            tense: VerbTense.passeCompose,
+            slot: slot,
+            number: 1,
+            agreement: agreement,
+          );
+
+      final elle = question(_partir, 2, Agreement.feminineSingular);
+      expect(elle.prompt, 'Elle _____ (passé composé)');
+      expect(elle.answer, 'est partie');
+
+      final ils = question(_seLever, 5, Agreement.masculinePlural);
+      expect(ils.prompt, 'Ils _____ (passé composé)');
+      expect(ils.answer, 'se sont levés');
+
+      final je = question(_partir, 0, Agreement.feminineSingular);
+      expect(je.prompt, 'Je (f) _____ (passé composé)');
+      expect(je.answer, 'suis partie');
+
+      final vous = question(_partir, 4, Agreement.femininePlural);
+      expect(vous.prompt, 'Vous (f pl) _____ (passé composé)');
+      expect(vous.answer, 'êtes parties');
+    });
+
     test('matches trims and ignores case but requires accents', () {
       final question = ConjugationQuestion(
         verb: _parler,
@@ -93,6 +177,20 @@ void main() {
       expect(question.matches('  PARLÉ '), isTrue);
       expect(question.matches('parle'), isFalse);
       expect(question.matches(''), isFalse);
+    });
+
+    test('matches tolerates extra spaces and curly apostrophes', () {
+      final question = ConjugationQuestion(
+        verb: _seLever,
+        tense: VerbTense.passeCompose,
+        slot: 1,
+        number: 1,
+        agreement: Agreement.masculineSingular,
+      );
+      expect(question.answer, "t'es levé");
+      expect(question.matches("t'es  levé"), isTrue);
+      expect(question.matches('t’es levé'), isTrue);
+      expect(question.matches("t'es levée"), isFalse);
     });
   });
 
@@ -147,6 +245,28 @@ void main() {
       }
     });
 
+    test('sets an agreement only for agreeing passé composé questions', () {
+      final quiz = ConjugationQuiz(
+        verbs: [_parler, _partir, _seLever],
+        tenses: {VerbTense.passeCompose, VerbTense.present},
+        random: Random(5),
+      );
+
+      final seen = <Agreement>{};
+      for (var i = 0; i < 90; i++) {
+        final q = quiz.next();
+        expect(q.answer, isNotEmpty);
+        if (q.tense == VerbTense.passeCompose && q.verb.participleAgrees) {
+          expect(q.agreement, isNotNull, reason: q.verb.infinitive);
+          expect(q.agreement, isIn(Agreement.validFor(q.slot)));
+          seen.add(q.agreement!);
+        } else {
+          expect(q.agreement, isNull, reason: q.verb.infinitive);
+        }
+      }
+      expect(seen.length, greaterThan(1));
+    });
+
     test('excludes verbs lacking every enabled tense', () {
       final quiz = ConjugationQuiz(
         verbs: [_parler, _onlyPasseSimple],
@@ -166,6 +286,11 @@ void main() {
       );
       expect(
         ConjugationQuiz(verbs: [_parler], tenses: {VerbTense.passeSimple})
+            .isEmpty,
+        isTrue,
+      );
+      expect(
+        ConjugationQuiz(verbs: [_finir], tenses: {VerbTense.passeCompose})
             .isEmpty,
         isTrue,
       );

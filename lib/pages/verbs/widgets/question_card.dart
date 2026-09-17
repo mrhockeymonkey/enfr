@@ -104,7 +104,7 @@ class _QuestionCardState extends State<QuestionCard>
             enableSuggestions: false,
             textAlign: TextAlign.center,
             decoration: InputDecoration(
-              hintText: 'Type the conjugation',
+              hintText: 'Type the conjugated form',
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(25.0),
               ),

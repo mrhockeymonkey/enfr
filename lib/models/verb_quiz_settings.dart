@@ -5,6 +5,7 @@ class VerbQuizSettings {
   static const defaultTiers = {VerbTier.essential};
   static const defaultTenses = {
     VerbTense.present,
+    VerbTense.passeCompose,
     VerbTense.imparfait,
     VerbTense.futur,
     VerbTense.pastParticiple,

@@ -1,9 +1,9 @@
 enum VerbTier {
-  essential('Essential', '46 most frequent verbs'),
-  common('Common', '431 everyday verbs'),
-  moderate('Moderate', '1,129 less frequent verbs'),
-  uncommon('Uncommon', '2,503 infrequent verbs'),
-  rare('Rare', '3,717 rare and literary verbs');
+  essential('Essential', '78 most frequent verbs'),
+  common('Common', '789 everyday verbs'),
+  moderate('Moderate', '1,936 less frequent verbs'),
+  uncommon('Uncommon', '3,734 infrequent verbs'),
+  rare('Rare', '4,786 rare and literary verbs');
 
   const VerbTier(this.label, this.description);
 

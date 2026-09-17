@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the experimental verb list (with pronominal verbs) from the Lefff .elex lexicon.
+"""Build the app's verb tier files (with pronominal verbs) from the Lefff .elex lexicon.
 
 Reads the raw Lefff 3.4 ``.elex`` file (Latin-1, tab-separated), classifies every
 verb by whether it has an inherently pronominal sense (``@pron``) and/or a derived
@@ -10,11 +10,19 @@ which are themselves Lefff data; the reflexive pronoun is composed in by rule.
 Genuinely defective verbs (``accroire``, ``quérir``, ...) that have no form in any
 quizzable tense are excluded by design; see ``has_quizzable_form``.
 
+The output is the app's five tier files, ``assets/verbs/verbs_<tier>.json``, split
+by zipf frequency exactly like the files they replace. The auxiliary for compound
+tenses comes from the curated ``ETRE_VERBS`` list (Lefff's own ``@être`` marks are
+too sparse to rely on and are only used as a cross-check).
+
 Usage:
     python3 tool/lefff/build_lefff_verbs.py \
         --elex tool/lefff/data/lefff-3.4.0.elex.tar.gz \
-        --tiers assets/verbs \
-        --out assets/verbs/experimental/verbs_lefff.json [--verify] [--report]
+        --tiers assets/verbs --out-dir assets/verbs [--verify] [--report]
+
+The script reads forms and zipf from the tier files in ``--tiers`` and writes the
+new tier files to ``--out-dir``; both default to ``assets/verbs``, so a rerun
+regenerates the files in place from their own previous version.
 
 Only the Python standard library is used. See tool/lefff/README.md.
 """
@@ -93,6 +101,33 @@ def has_quizzable_form(forms: dict[str, list]) -> bool:
         isinstance(forms.get(c), list) and any(f != "NA" for f in forms[c])
         for c in QUIZZABLE_CODES
     )
+
+
+# Verbs that take être in compound tenses ("je suis parti"). The "maison d'être"
+# set plus its common derivatives. Verbs that take être when intransitive and avoir
+# when transitive (sortir, monter, descendre, passer, rentrer, retourner) are listed
+# because the intransitive être form is the one learners are taught first.
+# Pronominal verbs always take être and are not listed here.
+ETRE_VERBS = {
+    "aller", "arriver", "décéder", "devenir", "redevenir", "entrer", "rentrer",
+    "monter", "remonter", "descendre", "redescendre", "mourir", "naître", "renaître",
+    "partir", "repartir", "passer", "rester", "retourner", "sortir", "ressortir",
+    "tomber", "retomber", "venir", "revenir", "parvenir", "survenir", "intervenir",
+    "advenir", "provenir", "accourir", "éclore",
+}
+
+TIER_CRITERIA = {
+    "essential": "zipf >= 5.0",
+    "common": "4.0 <= zipf < 5.0",
+    "moderate": "3.0 <= zipf < 4.0",
+    "uncommon": "1.5 <= zipf < 3.0",
+    "rare": "zipf < 1.5",
+}
+
+
+def auxiliary_for(infinitive: str, pronominal: bool) -> str:
+    """Auxiliary used in compound tenses: pronominal verbs and ETRE_VERBS take être."""
+    return "être" if pronominal or infinitive in ETRE_VERBS else "avoir"
 
 
 def tier_for(zipf: float) -> str:
@@ -289,14 +324,54 @@ def expand_tag(tag: str) -> list[tuple[str, int]]:
     return out
 
 
+PRONOUN_PREFIX_RE = re.compile(r"^(me |m'|te |t'|se |s'|nous |vous )")
+IMPERATIVE_SUFFIX_RE = re.compile(r"-(toi|nous|vous)$")
+
+
+def strip_pronouns(key: str, entry: dict) -> tuple[str, dict]:
+    """Inverse of compose_pronominal_forms: recover the bare paradigm of "se lever"."""
+    base = key[3:] if key.startswith("se ") else key[2:]
+    bare: dict = {}
+    for code, raw in entry.items():
+        if code not in TENSE_CODES or not isinstance(raw, list):
+            if code == "zipf":
+                bare[code] = raw
+            continue
+        if code in PERSON_CODES:
+            bare[code] = [PRONOUN_PREFIX_RE.sub("", f) if f != "NA" else f for f in raw]
+        elif code == "Y":
+            bare[code] = [IMPERATIVE_SUFFIX_RE.sub("", f) if f != "NA" else f for f in raw]
+        elif code == "G":
+            bare[code] = [re.sub(r"^(se |s')", "", f) if f != "NA" else f for f in raw]
+        elif code == "W":
+            bare[code] = [base]
+        else:
+            bare[code] = list(raw)
+    return base, bare
+
+
 def load_tiers(tiers_dir: pathlib.Path) -> dict[str, tuple[dict, str]]:
+    """Read forms and zipf per bare infinitive from the tier files.
+
+    Works both on the original bare-infinitive files and on this script's own
+    output, where a verb that only exists pronominally is keyed "s'évanouir": its
+    bare paradigm is recovered by stripping the composed pronoun. A plain key
+    always wins over a stripped pronominal one.
+    """
     forms: dict[str, tuple[dict, str]] = {}
+    stripped: dict[str, tuple[dict, str]] = {}
     for name in TIER_FILES:
         path = tiers_dir / name
         with open(path, encoding="utf-8") as fh:
             data = json.load(fh)
-        for inf, entry in data["verbs"].items():
-            forms[inf] = (entry, name)
+        for key, entry in data["verbs"].items():
+            if key.startswith("se ") or key.startswith("s'"):
+                base, bare = strip_pronouns(key, entry)
+                stripped[base] = (bare, name)
+            else:
+                forms[key] = (entry, name)
+    for base, value in stripped.items():
+        forms.setdefault(base, value)
     return forms
 
 
@@ -369,6 +444,7 @@ def build_entries(verbs: dict[str, VerbInfo], tiers: dict[str, tuple[dict, str]]
     counts = collections.Counter()
     missing_forms: list[str] = []
     defective: list[str] = []
+    aux_disagreements: list[str] = []
 
     for inf in sorted(verbs):
         info = verbs[inf]
@@ -395,14 +471,17 @@ def build_entries(verbs: dict[str, VerbInfo], tiers: dict[str, tuple[dict, str]]
             pron_key = ("s'" if elide else "se ") + inf
 
         if info.has_plain:
-            aux = sorted(info.aux) or ["avoir"]
+            lefff_aux = sorted(info.aux) or ["avoir"]
+            lefff_says_etre = lefff_aux == ["être"]
+            if lefff_says_etre != (inf in ETRE_VERBS):
+                aux_disagreements.append(f"{inf} (Lefff: {'/'.join(lefff_aux)})")
             entries[inf] = {
                 **base_forms,
                 "zipf": zipf,
                 "meta": {
                     "pronominal": False,
                     "pronominal_form": pron_key,
-                    "auxiliary": "both" if len(aux) > 1 else aux[0],
+                    "auxiliary": auxiliary_for(inf, False),
                     "impersonal": info.active_impersonal,
                     "impersonal_only": info.active_impersonal and not info.active_personal,
                     "prepositions": [p for p, _ in info.preps_active.most_common()],
@@ -454,6 +533,9 @@ def build_entries(verbs: dict[str, VerbInfo], tiers: dict[str, tuple[dict, str]]
     if defective:
         log.append(f"{len(defective)} defective verb(s) (no form in any quizzable tense) were "
                    f"excluded by design: {', '.join(defective)}")
+    if aux_disagreements:
+        log.append(f"{len(aux_disagreements)} verb(s) where ETRE_VERBS and Lefff's @être marks "
+                   f"disagree (the list wins): {', '.join(aux_disagreements)}")
     unused = sorted(set(tiers) - set(verbs))
     if unused:
         log.append(f"{len(unused)} tier-file key(s) do not exist in the elex and were not carried over: "
@@ -469,28 +551,45 @@ def sort_key(key: str) -> tuple[str, int]:
     return key, 0
 
 
-def write_output(path: pathlib.Path, entries: dict[str, dict], counts: collections.Counter, elex_name: str):
-    header = {
-        "source": ("Lefff " + LEFFF_VERSION + " (" + elex_name + ") for the verb inventory and "
-                   "pronominal classification; conjugation forms and zipf scores reused from "
-                   "assets/verbs/verbs_*.json"),
-        "lefff_version": LEFFF_VERSION,
-        "generated_by": "tool/lefff/build_lefff_verbs.py",
-        "verb_count": len(entries),
-        "counts": {k: counts[k] for k in ("plain", "pronominal", "essential", "lexicalised", "reflexive")},
-    }
-    path.parent.mkdir(parents=True, exist_ok=True)
-    keys = sorted(entries, key=sort_key)
-    with open(path, "w", encoding="utf-8", newline="\n") as fh:
-        fh.write("{\n")
-        for k, v in header.items():
-            fh.write(f"  {json.dumps(k)}: {json.dumps(v, ensure_ascii=False)},\n")
-        fh.write('  "verbs": {\n')
-        for i, key in enumerate(keys):
-            sep = "," if i < len(keys) - 1 else ""
-            fh.write(f"    {json.dumps(key, ensure_ascii=False)}: "
-                     f"{json.dumps(entries[key], ensure_ascii=False)}{sep}\n")
-        fh.write("  }\n}\n")
+def write_tier_files(out_dir: pathlib.Path, entries: dict[str, dict], elex_name: str) -> dict[str, int]:
+    """Write one verbs_<tier>.json per tier; returns {tier: verb_count}."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    by_tier: dict[str, dict[str, dict]] = {t: {} for t in TIER_CRITERIA}
+    for key, entry in entries.items():
+        by_tier[entry["meta"]["tier"]][key] = entry
+    written: dict[str, int] = {}
+    for tier, tier_entries in by_tier.items():
+        counts = collections.Counter()
+        for entry in tier_entries.values():
+            meta = entry["meta"]
+            counts["pronominal" if meta["pronominal"] else "plain"] += 1
+            if meta["pronominal"]:
+                counts[meta["pronominal_kind"]] += 1
+        header = {
+            "tier": tier,
+            "criteria": TIER_CRITERIA[tier],
+            "source": ("Lefff " + LEFFF_VERSION + " (" + elex_name + ") for the verb inventory "
+                       "and pronominal classification; conjugation forms and zipf scores "
+                       "(wordfreq, fr) carried over from the previous tier files"),
+            "lefff_version": LEFFF_VERSION,
+            "generated_by": "tool/lefff/build_lefff_verbs.py",
+            "verb_count": len(tier_entries),
+            "counts": {k: counts[k] for k in ("plain", "pronominal", "essential", "lexicalised", "reflexive")},
+        }
+        keys = sorted(tier_entries, key=sort_key)
+        path = out_dir / f"verbs_{tier}.json"
+        with open(path, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write("{\n")
+            for k, v in header.items():
+                fh.write(f"  {json.dumps(k)}: {json.dumps(v, ensure_ascii=False)},\n")
+            fh.write('  "verbs": {\n')
+            for i, key in enumerate(keys):
+                sep = "," if i < len(keys) - 1 else ""
+                fh.write(f"    {json.dumps(key, ensure_ascii=False)}: "
+                         f"{json.dumps(tier_entries[key], ensure_ascii=False)}{sep}\n")
+            fh.write("  }\n}\n")
+        written[tier] = len(tier_entries)
+    return written
 
 
 def verify_forms(verbs: dict[str, VerbInfo], paradigms: dict, tiers: dict, log: list[str]):
@@ -526,7 +625,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="lefff-3.4.elex, or the .tar.gz archive that contains it")
     parser.add_argument("--tiers", default="assets/verbs", type=pathlib.Path,
                         help="directory holding verbs_*.json (default: assets/verbs)")
-    parser.add_argument("--out", default="assets/verbs/experimental/verbs_lefff.json", type=pathlib.Path)
+    parser.add_argument("--out-dir", default="assets/verbs", type=pathlib.Path,
+                        help="directory to write verbs_<tier>.json into (default: assets/verbs)")
     parser.add_argument("--verify", action="store_true",
                         help="also read the inflected rows and check the tier-file forms against them")
     parser.add_argument("--report", action="store_true",
@@ -537,14 +637,16 @@ def main(argv: list[str] | None = None) -> int:
     verbs, paradigms = read_lexicon(args.elex, args.verify)
     tiers = load_tiers(args.tiers)
     entries, counts, h_decisions = build_entries(verbs, tiers, log)
-    write_output(args.out, entries, counts, args.elex.name)
     if args.verify:
         verify_forms(verbs, paradigms, tiers, log)
+    written = write_tier_files(args.out_dir, entries, args.elex.name)
 
     print(f"elex infinitives: {len(verbs)}   tier-file verbs: {len(tiers)}")
-    print(f"written {len(entries)} entries to {args.out}")
+    print(f"written {len(entries)} entries to {args.out_dir}/verbs_<tier>.json")
     for k in ("plain", "pronominal", "essential", "lexicalised", "reflexive"):
         print(f"  {k:12s} {counts[k]}")
+    for tier, n in written.items():
+        print(f"  {tier:12s} {n} entries")
     for line in log:
         print(line)
     if args.report:
