@@ -210,86 +210,114 @@ class _AskChatPageState extends State<AskChatPage> {
           ],
         ),
       ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Padding(
-          padding: EdgeInsets.symmetric(vertical: 35.0, horizontal: 10.0),
-          child: Column(
-            verticalDirection: VerticalDirection.down,
-            mainAxisAlignment: MainAxisAlignment.end,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: <Widget>[
-              Expanded(
-                child: ListView(
-                  children: [
-                    Theme(
-                      data: Theme.of(context).copyWith(
-                        textTheme: Theme.of(context).textTheme.copyWith(
-                              bodyLarge: Theme.of(context)
-                                  .textTheme
-                                  .bodyLarge
-                                  ?.copyWith(fontWeight: FontWeight.bold),
-                            ),
-                      ),
-                      child: ChatReply(
-                        reply: _answerStream,
-                        textAlign: TextAlign.center,
-                        onCompleted: (value) => setState(() {
-                          _answerText = value;
-                          if (_answerText.isNotEmpty) _showExplainBtn = true;
-                        }),
-                      ),
-                    ),
-                    _showExplainBtn
-                        ? TextButton(
-                            onPressed: () => _submitExplain(_answerText),
-                            child: Text("explain"),
-                          )
-                        : Container(),
-                    ChatReply(reply: _explanationStream)
-                  ],
-                ),
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(_direction == TranslationDirection.enToFr
-                      ? "English"
-                      : "French"),
-                  IconButton(
-                    icon: const Icon(Icons.swap_horiz),
-                    tooltip: "Switch translation direction",
-                    onPressed: () => setState(() {
-                      _direction =
-                          _direction == TranslationDirection.enToFr
-                              ? TranslationDirection.frToEn
-                              : TranslationDirection.enToFr;
+      body: Stack(
+        children: <Widget>[
+          Positioned.fill(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(10.0, 35.0, 10.0, 160.0),
+              children: [
+                Theme(
+                  data: Theme.of(context).copyWith(
+                    textTheme: Theme.of(context).textTheme.copyWith(
+                          bodyLarge: Theme.of(context)
+                              .textTheme
+                              .bodyLarge
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                  ),
+                  child: ChatReply(
+                    reply: _answerStream,
+                    textAlign: TextAlign.center,
+                    onCompleted: (value) => setState(() {
+                      _answerText = value;
+                      if (_answerText.isNotEmpty) _showExplainBtn = true;
                     }),
                   ),
-                  Text(_direction == TranslationDirection.enToFr
-                      ? "French"
-                      : "English"),
-                ],
-              ),
-              TextField(
-                controller: _controller,
-                decoration: InputDecoration(
-                    hintText: _direction == TranslationDirection.enToFr
-                        ? "What do you want to say?"
-                        : "Que veux-tu dire?",
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(25.0),
-                    ),
-                    suffixIcon: IconButton(
-                      onPressed: () => _controller.clear(),
-                      icon: Icon(Icons.clear),
-                    )),
-                onSubmitted: (value) => _submitQuestion(value),
-              ),
-            ],
+                ),
+                _showExplainBtn
+                    ? TextButton(
+                        onPressed: () => _submitExplain(_answerText),
+                        child: Text("explain"),
+                      )
+                    : Container(),
+                ChatReply(reply: _explanationStream)
+              ],
+            ),
           ),
-        ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                IgnorePointer(
+                  child: Container(
+                    height: 32.0,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Theme.of(context)
+                              .scaffoldBackgroundColor
+                              .withValues(alpha: 0.0),
+                          Theme.of(context).scaffoldBackgroundColor,
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                Container(
+                  color: Theme.of(context).scaffoldBackgroundColor,
+                  padding: const EdgeInsets.fromLTRB(10.0, 0.0, 10.0, 35.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: <Widget>[
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(_direction == TranslationDirection.enToFr
+                              ? "English"
+                              : "French"),
+                          IconButton(
+                            icon: const Icon(Icons.swap_horiz),
+                            tooltip: "Switch translation direction",
+                            onPressed: () => setState(() {
+                              _direction =
+                                  _direction == TranslationDirection.enToFr
+                                      ? TranslationDirection.frToEn
+                                      : TranslationDirection.enToFr;
+                            }),
+                          ),
+                          Text(_direction == TranslationDirection.enToFr
+                              ? "French"
+                              : "English"),
+                        ],
+                      ),
+                      TextField(
+                        controller: _controller,
+                        decoration: InputDecoration(
+                            hintText: _direction == TranslationDirection.enToFr
+                                ? "What do you want to say?"
+                                : "Que veux-tu dire?",
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(25.0),
+                            ),
+                            suffixIcon: IconButton(
+                              onPressed: () => _controller.clear(),
+                              icon: Icon(Icons.clear),
+                            )),
+                        onSubmitted: (value) => _submitQuestion(value),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
