@@ -6,12 +6,17 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   web:
-    name: Web → gh-pages
+    name: Web → Cloudflare Workers
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
 
@@ -35,13 +40,34 @@ jobs:
         run: |
           echo "name=$(grep '^version:' pubspec.yaml | sed 's/version: *//' | cut -d+ -f1)" >> "$GITHUB_OUTPUT"
 
+      # Served from the domain root on workers.dev, so no --base-href override.
       - name: Build web
-        run: flutter build web --wasm --base-href /enfr/ --no-web-resources-cdn --build-number=${{ github.run_number }} --dart-define=APP_VERSION=${{ steps.pkg_version.outputs.name }} --dart-define=APP_BUILD_NUMBER=${{ github.run_number }}
+        run: flutter build web --wasm --no-web-resources-cdn --build-number=${{ github.run_number }} --dart-define=APP_VERSION=${{ steps.pkg_version.outputs.name }} --dart-define=APP_BUILD_NUMBER=${{ github.run_number }}
 
-      - name: Deploy to gh-pages branch
-        if: github.event_name == 'push'
-        uses: peaceiris/actions-gh-pages@v4
+      - name: Deploy to production
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: cloudflare/wrangler-action@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: build/web
-          publish_branch: gh-pages
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
+
+      # Uploads a version without routing production traffic to it, tagged with a
+      # stable per-PR alias so the preview URL never changes across pushes.
+      - name: Deploy PR preview
+        if: github.event_name == 'pull_request'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: versions upload --preview-alias pr-${{ github.event.pull_request.number }}
+
+      - name: Comment preview URL
+        if: github.event_name == 'pull_request'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: cloudflare-preview
+          message: |
+            **Preview:** https://pr-${{ github.event.pull_request.number }}-enfr-prod.scottmatthews343.workers.dev
+
+            Built from ${{ github.event.pull_request.head.sha }} (build ${{ github.run_number }}).

@@ -12,10 +12,13 @@ A new Flutter project.
 
 ## CI/CD
 
-This is a **web-only** Flutter app. On every push to `main`, GitHub Actions
-builds the web app with `--wasm` and deploys it to the `gh-pages` branch (GitHub
-Pages is configured to serve from that branch). The wasm build ships a JS
-fallback alongside it, so browsers without WebAssembly GC support still work.
+This is a **web-only** Flutter app, hosted on Cloudflare Workers. On every push
+to `main`, GitHub Actions builds the web app with `--wasm` and deploys it to the
+`enfr-prod` Worker at <https://enfr-prod.scottmatthews343.workers.dev>. Pull
+requests get a stable preview at
+`https://pr-<number>-enfr-prod.scottmatthews343.workers.dev`. The wasm build
+ships a JS fallback alongside it, so browsers without WebAssembly GC support
+still work.
 
 The Flutter SDK version is pinned in `.fvmrc` at the repo root (managed via
 [fvm](https://fvm.app)). CI reads that file, so the SDK never floats to a new
@@ -31,7 +34,7 @@ fvm flutter run -d chrome
 ## Release build
 
 ```bash
-fvm flutter build web --wasm --base-href /enfr/ --no-web-resources-cdn
+fvm flutter build web --wasm --no-web-resources-cdn
 ```
 
 ## Getting Started

@@ -1,0 +1,18 @@
+{
+  // Assets-only Worker: Cloudflare serves the Flutter web build directly,
+  // so there is no `main` entrypoint script.
+  //
+  //   prod     -> https://enfr-prod.scottmatthews343.workers.dev
+  //   PR previews -> https://pr-<number>-enfr-prod.scottmatthews343.workers.dev
+  //
+  // The PR URLs come from version preview aliases
+  // (`wrangler versions upload --preview-alias pr-<number>`), which require
+  // `preview_urls` to be enabled below.
+  "name": "enfr-prod",
+  "compatibility_date": "2026-09-21",
+  "assets": {
+    "directory": "./build/web",
+    "not_found_handling": "single-page-application"
+  },
+  "preview_urls": true
+}
