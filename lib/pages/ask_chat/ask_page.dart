@@ -7,7 +7,25 @@ import 'package:enfr/services/model_preference_service.dart';
 import 'package:flutter/material.dart';
 import 'package:mistralai_client_dart/mistralai_client_dart.dart';
 
-enum TranslationDirection { enToFr, frToEn }
+/// What the Ask page does with the text input: which prompt template (if any)
+/// wraps it before it is sent.
+enum AskMode {
+  translate('Translate', Icons.translate),
+  check('Check', Icons.spellcheck),
+  chat('Chat', Icons.chat_bubble_outline);
+
+  const AskMode(this.label, this.icon);
+
+  final String label;
+  final IconData icon;
+
+  /// The prompt template for this mode, or null to send the input as-is.
+  String? get promptTemplate => switch (this) {
+        AskMode.translate => PromptRepository.translatePrompt,
+        AskMode.check => PromptRepository.checkPrompt,
+        AskMode.chat => null,
+      };
+}
 
 class AskChatPage extends StatefulWidget {
   const AskChatPage({super.key});
@@ -23,7 +41,7 @@ class _AskChatPageState extends State<AskChatPage> {
   late Stream<String> _answerStream;
   late Stream<String> _explanationStream;
   late TextEditingController _controller;
-  TranslationDirection _direction = TranslationDirection.enToFr;
+  AskMode _mode = AskMode.translate;
 
   @override
   void initState() {
@@ -108,16 +126,17 @@ class _AskChatPageState extends State<AskChatPage> {
     final model = await ModelPreferenceService.loadModel();
     final client = MistralAIClient(apiKey: key);
 
-    final promptTemplate = _direction == TranslationDirection.enToFr
-        ? PromptRepository.translatePrompt
-        : PromptRepository.translateToEnglishPrompt;
+    final promptTemplate = _mode.promptTemplate;
 
     var request = ChatCompletionRequest(
       model: model,
       messages: [
         UserMessage(
           content: UserMessageContent.string(
-            promptTemplate.replaceFirst(kTranslatePromptInputPlaceholder, content),
+            promptTemplate == null
+                ? content
+                : promptTemplate.replaceFirst(
+                    kTranslatePromptInputPlaceholder, content),
           ),
         ),
       ],
@@ -158,6 +177,31 @@ class _AskChatPageState extends State<AskChatPage> {
       //   print(chatMessage);
       // }
     }
+  }
+
+  void _openModePicker() {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final mode in AskMode.values)
+              ListTile(
+                leading: Icon(mode.icon),
+                title: Text(mode.label),
+                trailing: mode == _mode ? const Icon(Icons.check) : null,
+                selected: mode == _mode,
+                onTap: () {
+                  setState(() => _mode = mode);
+                  Navigator.of(sheetContext).pop();
+                },
+              ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -251,33 +295,26 @@ class _AskChatPageState extends State<AskChatPage> {
                   ],
                 ),
               ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(_direction == TranslationDirection.enToFr
-                      ? "English"
-                      : "French"),
-                  IconButton(
-                    icon: const Icon(Icons.swap_horiz),
-                    tooltip: "Switch translation direction",
-                    onPressed: () => setState(() {
-                      _direction =
-                          _direction == TranslationDirection.enToFr
-                              ? TranslationDirection.frToEn
-                              : TranslationDirection.enToFr;
-                    }),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: ActionChip(
+                    avatar: Icon(_mode.icon, size: 18),
+                    label: Text(_mode.label),
+                    tooltip: 'Choose mode',
+                    onPressed: _openModePicker,
                   ),
-                  Text(_direction == TranslationDirection.enToFr
-                      ? "French"
-                      : "English"),
-                ],
+                ),
               ),
               TextField(
                 controller: _controller,
                 decoration: InputDecoration(
-                    hintText: _direction == TranslationDirection.enToFr
-                        ? "What do you want to say?"
-                        : "Que veux-tu dire?",
+                    hintText: switch (_mode) {
+                      AskMode.translate => "What do you want to say?",
+                      AskMode.check => "Que veux-tu vérifier?",
+                      AskMode.chat => "Ask anything",
+                    },
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(25.0),
                     ),
