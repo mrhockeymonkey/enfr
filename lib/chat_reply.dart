@@ -19,8 +19,15 @@ class ChatReply extends StatefulWidget {
   static void _defaultOnCompleted(String _) {}
 }
 
-class _ChatReplyState extends State<ChatReply> {
+class _ChatReplyState extends State<ChatReply>
+    with AutomaticKeepAliveClientMixin {
   String? cumulativeReply = "";
+
+  /// Replies live in a lazy ListView, which disposes children scrolled
+  /// off-screen. The reply stream is single-subscription, so a rebuilt
+  /// StringCollector re-listening to it would throw; keep this state alive.
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void didUpdateWidget(covariant ChatReply oldWidget) {
@@ -31,6 +38,7 @@ class _ChatReplyState extends State<ChatReply> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Card(
       elevation: 0.0,
       color: Colors.transparent,
