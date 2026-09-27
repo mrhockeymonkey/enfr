@@ -5,9 +5,31 @@ import 'package:enfr/data/prompt_repository.dart';
 import 'package:enfr/services/api_key_service.dart';
 import 'package:enfr/services/model_preference_service.dart';
 import 'package:flutter/material.dart';
+import 'package:gpt_markdown/gpt_markdown.dart';
 import 'package:mistralai_client_dart/mistralai_client_dart.dart';
 
-enum TranslationDirection { enToFr, frToEn }
+/// What the Ask page does with the text input: which prompt template (if any)
+/// wraps it before it is sent.
+/// Shared by the mode chip and the text input so they have the same shape.
+const _kInputRadius = BorderRadius.all(Radius.circular(25.0));
+
+enum AskMode {
+  translate('Translate', Icons.translate),
+  check('Check', Icons.spellcheck),
+  chat('Chat', Icons.chat_bubble_outline);
+
+  const AskMode(this.label, this.icon);
+
+  final String label;
+  final IconData icon;
+
+  /// The prompt template for this mode, or null to send the input as-is.
+  String? get promptTemplate => switch (this) {
+        AskMode.translate => PromptRepository.translatePrompt,
+        AskMode.check => PromptRepository.checkPrompt,
+        AskMode.chat => null,
+      };
+}
 
 class AskChatPage extends StatefulWidget {
   const AskChatPage({super.key});
@@ -23,7 +45,11 @@ class _AskChatPageState extends State<AskChatPage> {
   late Stream<String> _answerStream;
   late Stream<String> _explanationStream;
   late TextEditingController _controller;
-  TranslationDirection _direction = TranslationDirection.enToFr;
+  AskMode _mode = AskMode.translate;
+
+  /// The mode the current answer was asked in; decides how it is displayed,
+  /// so switching the chip afterwards doesn't restyle an existing answer.
+  AskMode _answerMode = AskMode.translate;
 
   @override
   void initState() {
@@ -89,7 +115,13 @@ class _AskChatPageState extends State<AskChatPage> {
           content: Text('Add your Mistral API key in Settings first')));
       return;
     }
-    setState(() => _answerStream = _askChat(content));
+    setState(() {
+      _answerMode = _mode;
+      _answerStream = _askChat(content);
+      _answerText = "";
+      _showExplainBtn = false;
+      _explanationStream = Stream.empty();
+    });
   }
 
   Future<void> _submitExplain(String content) async {
@@ -108,16 +140,18 @@ class _AskChatPageState extends State<AskChatPage> {
     final model = await ModelPreferenceService.loadModel();
     final client = MistralAIClient(apiKey: key);
 
-    final promptTemplate = _direction == TranslationDirection.enToFr
-        ? PromptRepository.translatePrompt
-        : PromptRepository.translateToEnglishPrompt;
+    final promptTemplate = _mode.promptTemplate;
 
     var request = ChatCompletionRequest(
       model: model,
+      temperature: 0,
       messages: [
         UserMessage(
           content: UserMessageContent.string(
-            promptTemplate.replaceFirst(kTranslatePromptInputPlaceholder, content),
+            promptTemplate == null
+                ? content
+                : promptTemplate.replaceFirst(
+                    kTranslatePromptInputPlaceholder, content),
           ),
         ),
       ],
@@ -142,6 +176,7 @@ class _AskChatPageState extends State<AskChatPage> {
 
     var request = ChatCompletionRequest(
       model: model,
+      temperature: 0,
       messages: [
         SystemMessage(content: Content.string(PromptRepository.explainPrompt)),
         UserMessage(content: UserMessageContent.string(content)),
@@ -158,6 +193,57 @@ class _AskChatPageState extends State<AskChatPage> {
       //   print(chatMessage);
       // }
     }
+  }
+
+  void _openModePicker() {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        minimum: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          spacing: 4,
+          children: [
+            for (final mode in AskMode.values)
+              ListTile(
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(12)),
+                ),
+                leading: Icon(mode.icon),
+                title: Text(mode.label),
+                trailing: mode == _mode ? const Icon(Icons.check) : null,
+                selected: mode == _mode,
+                onTap: () {
+                  setState(() => _mode = mode);
+                  Navigator.of(sheetContext).pop();
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// A regular-weight markdown reply, with headings kept at body size rather
+  /// than headline sizes. Used for explanations and check/chat answers.
+  Widget _plainReply(Stream<String> reply) {
+    final heading = Theme.of(context)
+        .textTheme
+        .bodyLarge
+        ?.copyWith(fontWeight: FontWeight.bold);
+    return GptMarkdownTheme(
+      gptThemeData: GptMarkdownThemeData(
+        brightness: Theme.of(context).brightness,
+        h1: heading,
+        h2: heading,
+        h3: heading,
+        h4: heading,
+        h5: heading,
+        h6: heading,
+      ),
+      child: ChatReply(reply: reply),
+    );
   }
 
   @override
@@ -223,63 +309,62 @@ class _AskChatPageState extends State<AskChatPage> {
               Expanded(
                 child: ListView(
                   children: [
-                    Theme(
-                      data: Theme.of(context).copyWith(
-                        textTheme: Theme.of(context).textTheme.copyWith(
-                              bodyLarge: Theme.of(context)
-                                  .textTheme
-                                  .bodyLarge
-                                  ?.copyWith(fontWeight: FontWeight.bold),
-                            ),
+                    if (_answerMode == AskMode.translate) ...[
+                      Theme(
+                        data: Theme.of(context).copyWith(
+                          textTheme: Theme.of(context).textTheme.copyWith(
+                                bodyLarge: Theme.of(context)
+                                    .textTheme
+                                    .bodyLarge
+                                    ?.copyWith(fontWeight: FontWeight.bold),
+                              ),
+                        ),
+                        child: ChatReply(
+                          reply: _answerStream,
+                          textAlign: TextAlign.center,
+                          onCompleted: (value) => setState(() {
+                            _answerText = value;
+                            if (_answerText.isNotEmpty) _showExplainBtn = true;
+                          }),
+                        ),
                       ),
-                      child: ChatReply(
-                        reply: _answerStream,
-                        textAlign: TextAlign.center,
-                        onCompleted: (value) => setState(() {
-                          _answerText = value;
-                          if (_answerText.isNotEmpty) _showExplainBtn = true;
-                        }),
-                      ),
-                    ),
-                    _showExplainBtn
-                        ? TextButton(
-                            onPressed: () => _submitExplain(_answerText),
-                            child: Text("explain"),
-                          )
-                        : Container(),
-                    ChatReply(reply: _explanationStream)
+                      _showExplainBtn
+                          ? TextButton(
+                              onPressed: () => _submitExplain(_answerText),
+                              child: Text("explain"),
+                            )
+                          : Container(),
+                      _plainReply(_explanationStream),
+                    ] else
+                      _plainReply(_answerStream),
                   ],
                 ),
               ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(_direction == TranslationDirection.enToFr
-                      ? "English"
-                      : "French"),
-                  IconButton(
-                    icon: const Icon(Icons.swap_horiz),
-                    tooltip: "Switch translation direction",
-                    onPressed: () => setState(() {
-                      _direction =
-                          _direction == TranslationDirection.enToFr
-                              ? TranslationDirection.frToEn
-                              : TranslationDirection.enToFr;
-                    }),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: ActionChip(
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: _kInputRadius,
+                    ),
+                    avatar: Icon(_mode.icon, size: 18),
+                    label: Text(_mode.label),
+                    tooltip: 'Choose mode',
+                    onPressed: _openModePicker,
                   ),
-                  Text(_direction == TranslationDirection.enToFr
-                      ? "French"
-                      : "English"),
-                ],
+                ),
               ),
               TextField(
                 controller: _controller,
                 decoration: InputDecoration(
-                    hintText: _direction == TranslationDirection.enToFr
-                        ? "What do you want to say?"
-                        : "Que veux-tu dire?",
+                    hintText: switch (_mode) {
+                      AskMode.translate => "What do you want to say?",
+                      AskMode.check => "Que veux-tu vérifier?",
+                      AskMode.chat => "Ask anything",
+                    },
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(25.0),
+                      borderRadius: _kInputRadius,
                     ),
                     suffixIcon: IconButton(
                       onPressed: () => _controller.clear(),

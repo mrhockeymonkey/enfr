@@ -7,6 +7,7 @@ class PromptRepository {
   static late final String translatePrompt;
   static late final String translateToEnglishPrompt;
   static late final String explainPrompt;
+  static late final String checkPrompt;
 
   static Future<void> initAsync() async {
     if (_isInitialized) return;
@@ -18,6 +19,7 @@ class PromptRepository {
     translateToEnglishPrompt = await rootBundle
         .loadString('assets/prompts/translate_to_english.md');
     explainPrompt = await rootBundle.loadString('assets/prompts/explain.md');
+    checkPrompt = await rootBundle.loadString('assets/prompts/check.md');
 
     _isInitialized = true;
   }

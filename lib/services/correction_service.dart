@@ -32,7 +32,7 @@ class CorrectionService {
     final response = await client.chatComplete(
       request: ChatCompletionRequest(
         model: model,
-        temperature: 0.2,
+        temperature: 0,
         messages: [
           UserMessage(content: UserMessageContent.string(prompt)),
         ],
