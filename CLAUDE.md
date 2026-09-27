@@ -115,15 +115,20 @@ Nothing tracks `stable`, so a new Flutter release is never picked up automatical
 4. Deploys via `cloudflare/wrangler-action`, differently per event:
    - **push to `main`** — `wrangler deploy`, publishing to production:
      `https://enfr-prod.scottmatthews343.workers.dev`
-   - **pull request** — `wrangler versions upload --preview-alias pr-<number>`,
-     which uploads a version *without* routing production traffic to it and tags
-     it with a stable alias, giving
-     `https://pr-<number>-enfr-prod.scottmatthews343.workers.dev`. The URL stays
-     the same across pushes to the PR (an un-aliased version preview URL would
-     get a fresh random hash prefix each time). A sticky PR comment carries the
-     link.
+   - **pull request** — `wrangler preview --name pr-<number>`, which creates a
+     [Workers Preview](https://developers.cloudflare.com/workers/previews/) at
+     `https://pr-<number>-enfr-prod.scottmatthews343.workers.dev`, separate from
+     production. The URL stays the same across pushes to the PR, and a sticky PR
+     comment carries the link.
+
+`.github/workflows/preview-cleanup.yml` runs when a PR is closed (merged or not)
+and deletes its Preview with `wrangler preview delete`. It then updates the
+sticky comment.
+
+Earlier PRs used `wrangler versions upload --preview-alias`. Cloudflare can't
+delete those aliased versions. They stay in the dashboard's version history
+until they age out (only the 1000 most recent aliases are kept).
 
 Requires the `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` repo secrets.
 
-`wrangler versions upload` requires the Worker to already exist, so the first
-ever deploy has to be a production one.
+Workers Previews need Wrangler ≥ 4.136.3 (the workflows pin `wranglerVersion: "4"`).
