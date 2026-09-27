@@ -13,6 +13,10 @@ import 'package:mistralai_client_dart/mistralai_client_dart.dart';
 /// Shared by the mode chip and the text input so they have the same shape.
 const _kInputRadius = BorderRadius.all(Radius.circular(25.0));
 
+/// Height of the band at the bottom of the output that fades out behind the
+/// mode chip.
+const _kChipFadeHeight = 64.0;
+
 enum AskMode {
   translate('Translate', Icons.translate),
   check('Check', Icons.spellcheck),
@@ -307,52 +311,77 @@ class _AskChatPageState extends State<AskChatPage> {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: <Widget>[
               Expanded(
-                child: ListView(
+                child: Stack(
                   children: [
-                    if (_answerMode == AskMode.translate) ...[
-                      Theme(
-                        data: Theme.of(context).copyWith(
-                          textTheme: Theme.of(context).textTheme.copyWith(
-                                bodyLarge: Theme.of(context)
-                                    .textTheme
-                                    .bodyLarge
-                                    ?.copyWith(fontWeight: FontWeight.bold),
+                    // Fades the output out as it scrolls down behind the mode
+                    // chip, rather than it being cut off by a hard edge.
+                    ShaderMask(
+                      blendMode: BlendMode.dstIn,
+                      shaderCallback: (bounds) {
+                        final fadeStart = bounds.height <= _kChipFadeHeight
+                            ? 0.0
+                            : 1 - _kChipFadeHeight / bounds.height;
+                        return LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: const [Colors.black, Colors.transparent],
+                          stops: [fadeStart, 1.0],
+                        ).createShader(bounds);
+                      },
+                      child: ListView(
+                        // Lets the end of the output scroll clear of the chip.
+                        padding:
+                            const EdgeInsets.only(bottom: _kChipFadeHeight),
+                        children: [
+                          if (_answerMode == AskMode.translate) ...[
+                            Theme(
+                              data: Theme.of(context).copyWith(
+                                textTheme: Theme.of(context).textTheme.copyWith(
+                                      bodyLarge: Theme.of(context)
+                                          .textTheme
+                                          .bodyLarge
+                                          ?.copyWith(
+                                              fontWeight: FontWeight.bold),
+                                    ),
                               ),
-                        ),
-                        child: ChatReply(
-                          reply: _answerStream,
-                          textAlign: TextAlign.center,
-                          onCompleted: (value) => setState(() {
-                            _answerText = value;
-                            if (_answerText.isNotEmpty) _showExplainBtn = true;
-                          }),
-                        ),
+                              child: ChatReply(
+                                reply: _answerStream,
+                                textAlign: TextAlign.center,
+                                onCompleted: (value) => setState(() {
+                                  _answerText = value;
+                                  if (_answerText.isNotEmpty) {
+                                    _showExplainBtn = true;
+                                  }
+                                }),
+                              ),
+                            ),
+                            _showExplainBtn
+                                ? TextButton(
+                                    onPressed: () =>
+                                        _submitExplain(_answerText),
+                                    child: Text("explain"),
+                                  )
+                                : Container(),
+                            _plainReply(_explanationStream),
+                          ] else
+                            _plainReply(_answerStream),
+                        ],
                       ),
-                      _showExplainBtn
-                          ? TextButton(
-                              onPressed: () => _submitExplain(_answerText),
-                              child: Text("explain"),
-                            )
-                          : Container(),
-                      _plainReply(_explanationStream),
-                    ] else
-                      _plainReply(_answerStream),
-                  ],
-                ),
-              ),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 8.0),
-                  child: ActionChip(
-                    shape: const RoundedRectangleBorder(
-                      borderRadius: _kInputRadius,
                     ),
-                    avatar: Icon(_mode.icon, size: 18),
-                    label: Text(_mode.label),
-                    tooltip: 'Choose mode',
-                    onPressed: _openModePicker,
-                  ),
+                    Positioned(
+                      left: 0,
+                      bottom: 8.0,
+                      child: ActionChip(
+                        shape: const RoundedRectangleBorder(
+                          borderRadius: _kInputRadius,
+                        ),
+                        avatar: Icon(_mode.icon, size: 18),
+                        label: Text(_mode.label),
+                        tooltip: 'Choose mode',
+                        onPressed: _openModePicker,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               TextField(
