@@ -5,10 +5,14 @@ import 'package:enfr/data/prompt_repository.dart';
 import 'package:enfr/services/api_key_service.dart';
 import 'package:enfr/services/model_preference_service.dart';
 import 'package:flutter/material.dart';
+import 'package:gpt_markdown/gpt_markdown.dart';
 import 'package:mistralai_client_dart/mistralai_client_dart.dart';
 
 /// What the Ask page does with the text input: which prompt template (if any)
 /// wraps it before it is sent.
+/// Shared by the mode chip and the text input so they have the same shape.
+const _kInputRadius = BorderRadius.all(Radius.circular(25.0));
+
 enum AskMode {
   translate('Translate', Icons.translate),
   check('Check', Icons.spellcheck),
@@ -107,7 +111,12 @@ class _AskChatPageState extends State<AskChatPage> {
           content: Text('Add your Mistral API key in Settings first')));
       return;
     }
-    setState(() => _answerStream = _askChat(content));
+    setState(() {
+      _answerStream = _askChat(content);
+      _answerText = "";
+      _showExplainBtn = false;
+      _explanationStream = Stream.empty();
+    });
   }
 
   Future<void> _submitExplain(String content) async {
@@ -291,7 +300,26 @@ class _AskChatPageState extends State<AskChatPage> {
                             child: Text("explain"),
                           )
                         : Container(),
-                    ChatReply(reply: _explanationStream)
+                    // Keep markdown headings in the explanation at the same
+                    // size as the answer above rather than headline sizes.
+                    Builder(builder: (context) {
+                      final base = Theme.of(context)
+                          .textTheme
+                          .bodyLarge
+                          ?.copyWith(fontWeight: FontWeight.bold);
+                      return GptMarkdownTheme(
+                        gptThemeData: GptMarkdownThemeData(
+                          brightness: Theme.of(context).brightness,
+                          h1: base,
+                          h2: base,
+                          h3: base,
+                          h4: base,
+                          h5: base,
+                          h6: base,
+                        ),
+                        child: ChatReply(reply: _explanationStream),
+                      );
+                    }),
                   ],
                 ),
               ),
@@ -300,6 +328,9 @@ class _AskChatPageState extends State<AskChatPage> {
                 child: Padding(
                   padding: const EdgeInsets.only(bottom: 8.0),
                   child: ActionChip(
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: _kInputRadius,
+                    ),
                     avatar: Icon(_mode.icon, size: 18),
                     label: Text(_mode.label),
                     tooltip: 'Choose mode',
@@ -316,7 +347,7 @@ class _AskChatPageState extends State<AskChatPage> {
                       AskMode.chat => "Ask anything",
                     },
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(25.0),
+                      borderRadius: _kInputRadius,
                     ),
                     suffixIcon: IconButton(
                       onPressed: () => _controller.clear(),
