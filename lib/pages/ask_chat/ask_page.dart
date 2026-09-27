@@ -47,6 +47,10 @@ class _AskChatPageState extends State<AskChatPage> {
   late TextEditingController _controller;
   AskMode _mode = AskMode.translate;
 
+  /// The mode the current answer was asked in; decides how it is displayed,
+  /// so switching the chip afterwards doesn't restyle an existing answer.
+  AskMode _answerMode = AskMode.translate;
+
   @override
   void initState() {
     super.initState();
@@ -112,6 +116,7 @@ class _AskChatPageState extends State<AskChatPage> {
       return;
     }
     setState(() {
+      _answerMode = _mode;
       _answerStream = _askChat(content);
       _answerText = "";
       _showExplainBtn = false;
@@ -193,11 +198,16 @@ class _AskChatPageState extends State<AskChatPage> {
       context: context,
       showDragHandle: true,
       builder: (sheetContext) => SafeArea(
+        minimum: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          spacing: 4,
           children: [
             for (final mode in AskMode.values)
               ListTile(
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(12)),
+                ),
                 leading: Icon(mode.icon),
                 title: Text(mode.label),
                 trailing: mode == _mode ? const Icon(Icons.check) : null,
@@ -210,6 +220,27 @@ class _AskChatPageState extends State<AskChatPage> {
           ],
         ),
       ),
+    );
+  }
+
+  /// A regular-weight markdown reply, with headings kept at body size rather
+  /// than headline sizes. Used for explanations and check/chat answers.
+  Widget _plainReply(Stream<String> reply) {
+    final heading = Theme.of(context)
+        .textTheme
+        .bodyLarge
+        ?.copyWith(fontWeight: FontWeight.bold);
+    return GptMarkdownTheme(
+      gptThemeData: GptMarkdownThemeData(
+        brightness: Theme.of(context).brightness,
+        h1: heading,
+        h2: heading,
+        h3: heading,
+        h4: heading,
+        h5: heading,
+        h6: heading,
+      ),
+      child: ChatReply(reply: reply),
     );
   }
 
@@ -276,50 +307,34 @@ class _AskChatPageState extends State<AskChatPage> {
               Expanded(
                 child: ListView(
                   children: [
-                    Theme(
-                      data: Theme.of(context).copyWith(
-                        textTheme: Theme.of(context).textTheme.copyWith(
-                              bodyLarge: Theme.of(context)
-                                  .textTheme
-                                  .bodyLarge
-                                  ?.copyWith(fontWeight: FontWeight.bold),
-                            ),
-                      ),
-                      child: ChatReply(
-                        reply: _answerStream,
-                        textAlign: TextAlign.center,
-                        onCompleted: (value) => setState(() {
-                          _answerText = value;
-                          if (_answerText.isNotEmpty) _showExplainBtn = true;
-                        }),
-                      ),
-                    ),
-                    _showExplainBtn
-                        ? TextButton(
-                            onPressed: () => _submitExplain(_answerText),
-                            child: Text("explain"),
-                          )
-                        : Container(),
-                    // Keep markdown headings in the explanation at the same
-                    // size as the answer above rather than headline sizes.
-                    Builder(builder: (context) {
-                      final base = Theme.of(context)
-                          .textTheme
-                          .bodyLarge
-                          ?.copyWith(fontWeight: FontWeight.bold);
-                      return GptMarkdownTheme(
-                        gptThemeData: GptMarkdownThemeData(
-                          brightness: Theme.of(context).brightness,
-                          h1: base,
-                          h2: base,
-                          h3: base,
-                          h4: base,
-                          h5: base,
-                          h6: base,
+                    if (_answerMode == AskMode.translate) ...[
+                      Theme(
+                        data: Theme.of(context).copyWith(
+                          textTheme: Theme.of(context).textTheme.copyWith(
+                                bodyLarge: Theme.of(context)
+                                    .textTheme
+                                    .bodyLarge
+                                    ?.copyWith(fontWeight: FontWeight.bold),
+                              ),
                         ),
-                        child: ChatReply(reply: _explanationStream),
-                      );
-                    }),
+                        child: ChatReply(
+                          reply: _answerStream,
+                          textAlign: TextAlign.center,
+                          onCompleted: (value) => setState(() {
+                            _answerText = value;
+                            if (_answerText.isNotEmpty) _showExplainBtn = true;
+                          }),
+                        ),
+                      ),
+                      _showExplainBtn
+                          ? TextButton(
+                              onPressed: () => _submitExplain(_answerText),
+                              child: Text("explain"),
+                            )
+                          : Container(),
+                      _plainReply(_explanationStream),
+                    ] else
+                      _plainReply(_answerStream),
                   ],
                 ),
               ),
