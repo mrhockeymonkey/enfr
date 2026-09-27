@@ -144,6 +144,7 @@ class _AskChatPageState extends State<AskChatPage> {
 
     var request = ChatCompletionRequest(
       model: model,
+      temperature: 0,
       messages: [
         UserMessage(
           content: UserMessageContent.string(
@@ -175,6 +176,7 @@ class _AskChatPageState extends State<AskChatPage> {
 
     var request = ChatCompletionRequest(
       model: model,
+      temperature: 0,
       messages: [
         SystemMessage(content: Content.string(PromptRepository.explainPrompt)),
         UserMessage(content: UserMessageContent.string(content)),
