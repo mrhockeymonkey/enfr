@@ -1,0 +1,31 @@
+name: Preview cleanup
+
+on:
+  pull_request:
+    branches: [main]
+    types: [closed]
+
+jobs:
+  cleanup:
+    name: Delete Cloudflare preview
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      # PRs opened before the switch to Workers Previews have no Preview to
+      # delete, so a "Preview not found" failure here is fine.
+      - name: Delete PR preview
+        continue-on-error: true
+        uses: cloudflare/wrangler-action@v4
+        with:
+          wranglerVersion: "4"
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: preview delete --name pr-${{ github.event.pull_request.number }} --worker-name enfr-prod --skip-confirmation
+
+      - name: Update preview comment
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: cloudflare-preview
+          message: |
+            **Preview:** deleted (PR closed).

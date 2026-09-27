@@ -16,6 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      deployments: write
       pull-requests: write
     steps:
       - uses: actions/checkout@v4
@@ -53,16 +54,18 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: deploy
 
-      # Uploads a version without routing production traffic to it, tagged with a
-      # stable per-PR alias so the preview URL never changes across pushes.
+      # Workers Preview: a stable per-PR URL, deleted when the PR closes
+      # (see preview-cleanup.yml).
       - name: Deploy PR preview
+        id: preview
         if: github.event_name == 'pull_request'
-        uses: cloudflare/wrangler-action@v3
+        uses: cloudflare/wrangler-action@v4
         with:
           wranglerVersion: "4"
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: versions upload --preview-alias pr-${{ github.event.pull_request.number }}
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          command: preview --name pr-${{ github.event.pull_request.number }}
 
       - name: Comment preview URL
         if: github.event_name == 'pull_request'
@@ -70,6 +73,6 @@ jobs:
         with:
           header: cloudflare-preview
           message: |
-            **Preview:** https://pr-${{ github.event.pull_request.number }}-enfr-prod.scottmatthews343.workers.dev
+            **Preview:** ${{ steps.preview.outputs.preview-url }}
 
             Built from ${{ github.event.pull_request.head.sha }} (build ${{ github.run_number }}).

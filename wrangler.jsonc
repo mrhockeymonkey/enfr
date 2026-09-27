@@ -5,14 +5,15 @@
   //   prod     -> https://enfr-prod.scottmatthews343.workers.dev
   //   PR previews -> https://pr-<number>-enfr-prod.scottmatthews343.workers.dev
   //
-  // The PR URLs come from version preview aliases
-  // (`wrangler versions upload --preview-alias pr-<number>`), which require
-  // `preview_urls` to be enabled below.
+  // The PR URLs come from Workers Previews (`wrangler preview --name
+  // pr-<number>`). `wrangler preview` needs a `previews` block, even an empty
+  // one, and `preview_urls` enabled.
   "name": "enfr-prod",
   "compatibility_date": "2026-09-21",
   "assets": {
     "directory": "./build/web",
     "not_found_handling": "single-page-application"
   },
-  "preview_urls": true
+  "preview_urls": true,
+  "previews": {}
 }
