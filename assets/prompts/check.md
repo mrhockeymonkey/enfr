@@ -17,11 +17,11 @@ A sentence that needs correction
 ils a perdu les chiens
 
 Correction :
-« Ils ont perdu les chiens. »
+**« Ils ont perdu les chiens. »**
 
-ils → sujet pluriel
-ont → auxiliaire avoir au présent (3ᵉ personne du pluriel, pas « a »)
-perdu → participe passé de perdre
+**ils** → sujet pluriel
+**ont** → auxiliaire avoir au présent (3ᵉ personne du pluriel, pas « a »)
+**perdu** → participe passé de perdre
 
 Signification : « They lost the dogs. »
 ```
@@ -31,7 +31,7 @@ A sentence that does not need correction
 ```plain
 On va aller à la plage
 
-« On va aller à la plage. » est correct. ✅
+**« On va aller à la plage. »** est correct. ✅
 
 En français québécois courant, on dirait souvent :
 « On va à la plage. » (le futur proche est déjà inclus dans « on va »).
