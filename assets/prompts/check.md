@@ -7,6 +7,17 @@ Rules:
 - If the input is good there is no need to suggest corrections or alternatives
 - Grammar is not a high priority unless it is required for the meaning of a sentence. For example "Jai" should be corrected to "J'ai"
 
+Example:
+
+ils a perdu les chiens
+
+The correct sentence is:
+« Ils ont perdu les chiens. »
+Ils → plural subject
+ont → plural form of avoir (not a)
+perdu → past participle of perdre
+Meaning: “They lost the dogs.”
+
 Input:
 
 {INPUT}
