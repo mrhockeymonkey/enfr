@@ -2,11 +2,14 @@ import 'package:enfr/chat_reply.dart';
 import 'package:enfr/constants/app_version.dart';
 import 'package:enfr/constants/prompts.dart';
 import 'package:enfr/data/prompt_repository.dart';
+import 'package:enfr/models/check_response.dart';
 import 'package:enfr/services/api_key_service.dart';
+import 'package:enfr/services/check_markdown.dart';
+import 'package:enfr/services/check_service.dart';
 import 'package:enfr/services/model_preference_service.dart';
 import 'package:flutter/material.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
-import 'package:mistralai_client_dart/mistralai_client_dart.dart';
+import 'package:mistralai_dart/mistralai_dart.dart';
 
 /// What the Ask page does with the text input: which prompt template (if any)
 /// wraps it before it is sent.
@@ -28,10 +31,10 @@ enum AskMode {
   final IconData icon;
 
   /// The prompt template for this mode, or null to send the input as-is.
+  /// Check builds its own structured request in [CheckService].
   String? get promptTemplate => switch (this) {
         AskMode.translate => PromptRepository.translatePrompt,
-        AskMode.check => PromptRepository.checkPrompt,
-        AskMode.chat => null,
+        AskMode.check || AskMode.chat => null,
       };
 }
 
@@ -47,6 +50,11 @@ class _AskChatPageState extends State<AskChatPage> {
   bool _showExplainBtn = false;
   String _answerText = "";
   late Stream<String> _answerStream;
+
+  /// The structured reply behind the current answer, when it was a Check.
+  /// Not read yet; kept so later features can use individual sections.
+  // ignore: unused_field
+  CheckReply? _checkReply;
   late Stream<String> _explanationStream;
   late TextEditingController _controller;
   AskMode _mode = AskMode.translate;
@@ -119,9 +127,15 @@ class _AskChatPageState extends State<AskChatPage> {
           content: Text('Add your Mistral API key in Settings first')));
       return;
     }
+    final mode = _mode;
+    final checkReply =
+        mode == AskMode.check ? await CheckService.check(content) : null;
+    if (!mounted) return;
     setState(() {
-      _answerMode = _mode;
-      _answerStream = _askChat(content);
+      _answerMode = mode;
+      _checkReply = checkReply;
+      _answerStream =
+          checkReply != null ? checkMarkdown(checkReply) : _askChat(content);
       _answerText = "";
       _showExplainBtn = false;
       _explanationStream = Stream.empty();
@@ -142,7 +156,7 @@ class _AskChatPageState extends State<AskChatPage> {
   Stream<String> _askChat(String content) async* {
     final key = await ApiKeyService.loadKey() ?? '';
     final model = await ModelPreferenceService.loadModel();
-    final client = MistralAIClient(apiKey: key);
+    final client = MistralClient.withApiKey(key);
 
     final promptTemplate = _mode.promptTemplate;
 
@@ -150,20 +164,18 @@ class _AskChatPageState extends State<AskChatPage> {
       model: model,
       temperature: 0,
       messages: [
-        UserMessage(
-          content: UserMessageContent.string(
-            promptTemplate == null
-                ? content
-                : promptTemplate.replaceFirst(
-                    kTranslatePromptInputPlaceholder, content),
-          ),
+        ChatMessage.user(
+          promptTemplate == null
+              ? content
+              : promptTemplate.replaceFirst(
+                  kTranslatePromptInputPlaceholder, content),
         ),
       ],
     );
 
-    final stream = client.chatStream(request: request);
+    final stream = client.chat.createStream(request: request);
     await for (final completionChunk in stream) {
-      final chatMessage = completionChunk.choices[0].delta.content;
+      final chatMessage = completionChunk.text;
       print(chatMessage);
       yield chatMessage ?? ""; // or not yield...
       await Future.delayed(Duration(milliseconds: 100));
@@ -176,20 +188,20 @@ class _AskChatPageState extends State<AskChatPage> {
   Stream<String> _askChatExplain(String content) async* {
     final key = await ApiKeyService.loadKey() ?? '';
     final model = await ModelPreferenceService.loadModel();
-    final client = MistralAIClient(apiKey: key);
+    final client = MistralClient.withApiKey(key);
 
     var request = ChatCompletionRequest(
       model: model,
       temperature: 0,
       messages: [
-        SystemMessage(content: Content.string(PromptRepository.explainPrompt)),
-        UserMessage(content: UserMessageContent.string(content)),
+        ChatMessage.system(PromptRepository.explainPrompt),
+        ChatMessage.user(content),
       ],
     );
 
-    final stream = client.chatStream(request: request);
+    final stream = client.chat.createStream(request: request);
     await for (final completionChunk in stream) {
-      final chatMessage = completionChunk.choices[0].delta.content;
+      final chatMessage = completionChunk.text;
       print(chatMessage);
       yield chatMessage ?? ""; // or not yield...
       await Future.delayed(Duration(milliseconds: 100));

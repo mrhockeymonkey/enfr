@@ -1,7 +1,7 @@
 import 'package:enfr/services/api_key_service.dart';
 import 'package:enfr/services/model_preference_service.dart';
 import 'package:flutter/material.dart';
-import 'package:mistralai_client_dart/mistralai_client_dart.dart';
+import 'package:mistralai_dart/mistralai_dart.dart';
 
 const List<String> _kFallbackModels = [
   'mistral-small-latest',
@@ -53,10 +53,15 @@ class _SettingsPageState extends State<SettingsPage> {
 
     setState(() => _loadingModels = true);
     try {
-      final client = MistralAIClient(apiKey: key);
-      final response = await client.listModels();
-      final models = (response.data ?? [])
-          .where((m) => m.capabilities.completionChat)
+      final client = MistralClient.withApiKey(key);
+      final ModelList response;
+      try {
+        response = await client.models.list();
+      } finally {
+        client.close();
+      }
+      final models = response.data
+          .where((m) => m.capabilities.completionChat ?? false)
           .map((m) => m.id)
           .toList();
       if (mounted && models.isNotEmpty) {

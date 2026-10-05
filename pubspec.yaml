@@ -34,7 +34,8 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
-  mistralai_client_dart: ^1.1.0
+  mistralai_dart: ^8.0.0
+  llm_json_stream: ^1.0.0
   gpt_markdown: ^1.0.20
   flutter_math_fork: 0.7.4 # See isse https://github.com/Infinitix-LLC/gpt_markdown/issues/62
   collection: ^1.19.1
@@ -50,6 +51,16 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
+
+dependency_overrides:
+  # Temporary: browser CORS fix for X-Request-ID, pending upstream
+  # https://github.com/davidmigloz/ai_clients_dart/pull/314
+  # Remove once a mistralai_dart release includes it.
+  mistralai_dart:
+    git:
+      url: https://github.com/mrhockeymonkey/ai_clients_dart.git
+      path: packages/mistralai_dart
+      ref: 5f8d677890eb579399e787de5f8911a344733476
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
