@@ -1,7 +1,7 @@
+import 'package:enfr/constants/voices.dart';
 import 'package:enfr/services/api_key_service.dart';
 import 'package:enfr/services/eleven_labs_settings_service.dart';
 import 'package:enfr/services/model_preference_service.dart';
-import 'package:enfr/services/text_to_speech_service.dart';
 import 'package:flutter/material.dart';
 import 'package:mistralai_client_dart/mistralai_client_dart.dart';
 
@@ -29,11 +29,7 @@ class _SettingsPageState extends State<SettingsPage> {
   final _elevenLabsController = TextEditingController();
   bool _elevenLabsObscure = true;
 
-  /// Voice id → voice: the account's own voices followed by Québec voices
-  /// from the Voice Library. Starts with just the saved voice until fetched.
-  Map<String, Voice> _voices = {};
   String? _selectedVoice;
-  bool _loadingVoices = false;
 
   @override
   void initState() {
@@ -42,23 +38,11 @@ class _SettingsPageState extends State<SettingsPage> {
       if (key != null && mounted) setState(() => _controller.text = key);
     });
     ElevenLabsSettingsService.loadVoice().then((voice) {
-      if (mounted) {
-        setState(() {
-          _selectedVoice = voice;
-          _voices.putIfAbsent(
-              voice,
-              () => Voice(
-                  voice,
-                  voice == ElevenLabsSettingsService.defaultVoice
-                      ? 'George (default)'
-                      : voice));
-        });
-      }
+      if (mounted) setState(() => _selectedVoice = voice);
     });
     ElevenLabsSettingsService.loadKey().then((key) {
       if (key != null && mounted) {
         setState(() => _elevenLabsController.text = key);
-        _refreshVoices();
       }
     });
     ModelPreferenceService.loadModel().then((model) {
@@ -77,49 +61,6 @@ class _SettingsPageState extends State<SettingsPage> {
     _controller.dispose();
     _elevenLabsController.dispose();
     super.dispose();
-  }
-
-  Future<void> _refreshVoices() async {
-    final key = _elevenLabsController.text.trim();
-    if (key.isEmpty) return;
-
-    setState(() => _loadingVoices = true);
-    final tts = TextToSpeechService();
-    // Fetched independently so one failing doesn't hide the other's voices.
-    // Keys restricted to text-to-speech can't list voices; the saved or
-    // default voice still works.
-    final results = await Future.wait([
-      tts.listVoices(key).then<List<Voice>?>((v) => v, onError: (_) => null),
-      tts
-          .listQuebecVoices(key)
-          .then<List<Voice>?>((v) => v, onError: (_) => null),
-    ]);
-    if (!mounted) return;
-    final [own, quebec] = results;
-    setState(() {
-      _loadingVoices = false;
-      final saved = _selectedVoice == null ? null : _voices[_selectedVoice];
-      _voices = {for (final v in own ?? const <Voice>[]) v.id: v};
-      // Library voices already in the account stay listed as own voices.
-      for (final v in quebec ?? const <Voice>[]) {
-        _voices.putIfAbsent(v.id, () => v);
-      }
-      if (_selectedVoice != null && !_voices.containsKey(_selectedVoice)) {
-        if (saved != null) {
-          _voices[_selectedVoice!] = saved;
-        } else {
-          _selectedVoice = _voices.keys.firstOrNull;
-        }
-      }
-    });
-    if (own == null || quebec == null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(own == null && quebec == null
-              ? 'Could not fetch voices, showing default'
-              : own == null
-                  ? 'Could not fetch your voices'
-                  : 'Could not fetch Québec voices')));
-    }
   }
 
   Future<void> _refreshModels() async {
@@ -157,26 +98,9 @@ class _SettingsPageState extends State<SettingsPage> {
     if (_selectedModel != null) {
       await ModelPreferenceService.saveModel(_selectedModel!);
     }
-    final elevenLabsKey = _elevenLabsController.text.trim();
-    await ElevenLabsSettingsService.saveKey(elevenLabsKey);
-    final voice = _selectedVoice == null ? null : _voices[_selectedVoice];
-    if (voice != null) {
-      var voiceId = voice.id;
-      if (voice.isShared) {
-        // Library voices must be in the account before text-to-speech can
-        // use them.
-        try {
-          voiceId =
-              await TextToSpeechService().addSharedVoice(elevenLabsKey, voice);
-        } catch (e) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Could not add ${voice.name}: $e')));
-          }
-          return;
-        }
-      }
-      await ElevenLabsSettingsService.saveVoice(voiceId);
+    await ElevenLabsSettingsService.saveKey(_elevenLabsController.text.trim());
+    if (_selectedVoice != null) {
+      await ElevenLabsSettingsService.saveVoice(_selectedVoice!);
     }
     if (mounted) {
       // The root ScaffoldMessenger keeps showing this on the page below.
@@ -221,7 +145,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 hintText: 'Enter your Mistral API key',
                 border: const OutlineInputBorder(),
                 suffixIcon: IconButton(
-                  icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
+                  icon:
+                      Icon(_obscure ? Icons.visibility : Icons.visibility_off),
                   onPressed: () => setState(() => _obscure = !_obscure),
                 ),
               ),
@@ -280,43 +205,19 @@ class _SettingsPageState extends State<SettingsPage> {
             const SizedBox(height: 24),
             const Text('Voice', style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    // Keyed on the voice list so the field picks up a new
-                    // selection after the voices are fetched.
-                    key: ValueKey(_voices.keys.join(',')),
-                    initialValue: _selectedVoice,
-                    decoration: const InputDecoration(
-                      border: OutlineInputBorder(),
-                    ),
-                    isExpanded: true,
-                    items: _voices.values
-                        .map((v) => DropdownMenuItem(
-                            value: v.id,
-                            child: Text(
-                              v.isShared ? '${v.name} · Québec' : v.name,
-                              overflow: TextOverflow.ellipsis,
-                            )))
-                        .toList(),
-                    onChanged: (value) =>
-                        setState(() => _selectedVoice = value),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  icon: _loadingVoices
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.refresh),
-                  onPressed: _loadingVoices ? null : _refreshVoices,
-                  tooltip: 'Refresh voices',
-                ),
-              ],
+            DropdownButtonFormField<String>(
+              // Rebuilt once the saved voice has loaded, so it shows that
+              // voice rather than the empty initial value.
+              key: ValueKey(_selectedVoice != null),
+              initialValue: _selectedVoice,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+              ),
+              items: kVoices
+                  .map(
+                      (v) => DropdownMenuItem(value: v.id, child: Text(v.name)))
+                  .toList(),
+              onChanged: (value) => setState(() => _selectedVoice = value),
             ),
             const SizedBox(height: 16),
             Row(
