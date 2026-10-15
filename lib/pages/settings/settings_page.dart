@@ -29,9 +29,9 @@ class _SettingsPageState extends State<SettingsPage> {
   final _elevenLabsController = TextEditingController();
   bool _elevenLabsObscure = true;
 
-  /// Voice id → display name. Starts with just the saved voice, by id, until
-  /// the account's voices are fetched.
-  Map<String, String> _voices = {};
+  /// Voice id → voice: the account's own voices followed by Québec voices
+  /// from the Voice Library. Starts with just the saved voice until fetched.
+  Map<String, Voice> _voices = {};
   String? _selectedVoice;
   bool _loadingVoices = false;
 
@@ -47,9 +47,11 @@ class _SettingsPageState extends State<SettingsPage> {
           _selectedVoice = voice;
           _voices.putIfAbsent(
               voice,
-              () => voice == ElevenLabsSettingsService.defaultVoice
-                  ? 'George (default)'
-                  : voice);
+              () => Voice(
+                  voice,
+                  voice == ElevenLabsSettingsService.defaultVoice
+                      ? 'George (default)'
+                      : voice));
         });
       }
     });
@@ -82,25 +84,41 @@ class _SettingsPageState extends State<SettingsPage> {
     if (key.isEmpty) return;
 
     setState(() => _loadingVoices = true);
-    try {
-      final voices = await TextToSpeechService().listVoices(key);
-      if (mounted && voices.isNotEmpty) {
-        setState(() {
-          _voices = {for (final v in voices) v.id: v.name};
-          if (_selectedVoice == null || !_voices.containsKey(_selectedVoice)) {
-            _selectedVoice = voices.first.id;
-          }
-        });
+    final tts = TextToSpeechService();
+    // Fetched independently so one failing doesn't hide the other's voices.
+    // Keys restricted to text-to-speech can't list voices; the saved or
+    // default voice still works.
+    final results = await Future.wait([
+      tts.listVoices(key).then<List<Voice>?>((v) => v, onError: (_) => null),
+      tts
+          .listQuebecVoices(key)
+          .then<List<Voice>?>((v) => v, onError: (_) => null),
+    ]);
+    if (!mounted) return;
+    final [own, quebec] = results;
+    setState(() {
+      _loadingVoices = false;
+      final saved = _selectedVoice == null ? null : _voices[_selectedVoice];
+      _voices = {for (final v in own ?? const <Voice>[]) v.id: v};
+      // Library voices already in the account stay listed as own voices.
+      for (final v in quebec ?? const <Voice>[]) {
+        _voices.putIfAbsent(v.id, () => v);
       }
-    } catch (_) {
-      // Keys restricted to text-to-speech can't list voices; the saved or
-      // default voice still works.
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Could not fetch voices, showing default')));
+      if (_selectedVoice != null && !_voices.containsKey(_selectedVoice)) {
+        if (saved != null) {
+          _voices[_selectedVoice!] = saved;
+        } else {
+          _selectedVoice = _voices.keys.firstOrNull;
+        }
       }
-    } finally {
-      if (mounted) setState(() => _loadingVoices = false);
+    });
+    if (own == null || quebec == null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(own == null && quebec == null
+              ? 'Could not fetch voices, showing default'
+              : own == null
+                  ? 'Could not fetch your voices'
+                  : 'Could not fetch Québec voices')));
     }
   }
 
@@ -139,13 +157,32 @@ class _SettingsPageState extends State<SettingsPage> {
     if (_selectedModel != null) {
       await ModelPreferenceService.saveModel(_selectedModel!);
     }
-    await ElevenLabsSettingsService.saveKey(_elevenLabsController.text.trim());
-    if (_selectedVoice != null) {
-      await ElevenLabsSettingsService.saveVoice(_selectedVoice!);
+    final elevenLabsKey = _elevenLabsController.text.trim();
+    await ElevenLabsSettingsService.saveKey(elevenLabsKey);
+    final voice = _selectedVoice == null ? null : _voices[_selectedVoice];
+    if (voice != null) {
+      var voiceId = voice.id;
+      if (voice.isShared) {
+        // Library voices must be in the account before text-to-speech can
+        // use them.
+        try {
+          voiceId =
+              await TextToSpeechService().addSharedVoice(elevenLabsKey, voice);
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Could not add ${voice.name}: $e')));
+          }
+          return;
+        }
+      }
+      await ElevenLabsSettingsService.saveVoice(voiceId);
     }
     if (mounted) {
+      // The root ScaffoldMessenger keeps showing this on the page below.
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Settings saved')));
+      Navigator.of(context).pop();
     }
   }
 
@@ -254,9 +291,14 @@ class _SettingsPageState extends State<SettingsPage> {
                     decoration: const InputDecoration(
                       border: OutlineInputBorder(),
                     ),
-                    items: _voices.entries
+                    isExpanded: true,
+                    items: _voices.values
                         .map((v) => DropdownMenuItem(
-                            value: v.key, child: Text(v.value)))
+                            value: v.id,
+                            child: Text(
+                              v.isShared ? '${v.name} · Québec' : v.name,
+                              overflow: TextOverflow.ellipsis,
+                            )))
                         .toList(),
                     onChanged: (value) =>
                         setState(() => _selectedVoice = value),

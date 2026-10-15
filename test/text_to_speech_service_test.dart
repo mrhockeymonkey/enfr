@@ -87,4 +87,56 @@ void main() {
     expect([for (final v in voices) (v.id, v.name)],
         [('a', 'Alice'), ('b', 'Bob')]);
   });
+
+  test('listQuebecVoices queries fr-CA library voices', () async {
+    late http.Request sent;
+    final service = TextToSpeechService(
+      client: MockClient((request) async {
+        sent = request;
+        return http.Response(
+            jsonEncode({
+              'voices': [
+                {
+                  'voice_id': 'q1',
+                  'name': 'Amélie',
+                  'public_owner_id': 'owner1',
+                  'accent': 'québécois',
+                },
+              ],
+              'has_more': false,
+            }),
+            200);
+      }),
+    );
+
+    final voices = await service.listQuebecVoices('secret');
+
+    expect(sent.url.path, '/v1/shared-voices');
+    expect(sent.url.queryParameters,
+        {'language': 'fr', 'locale': 'fr-CA', 'page_size': '100'});
+    expect(sent.headers['xi-api-key'], 'secret');
+    expect(voices.single.id, 'q1');
+    expect(voices.single.name, 'Amélie');
+    expect(voices.single.publicOwnerId, 'owner1');
+    expect(voices.single.isShared, isTrue);
+  });
+
+  test('addSharedVoice adds the voice and returns its id', () async {
+    late http.Request sent;
+    final service = TextToSpeechService(
+      client: MockClient((request) async {
+        sent = request;
+        return http.Response(jsonEncode({'voice_id': 'added1'}), 200);
+      }),
+    );
+
+    final id = await service.addSharedVoice(
+        'secret', const Voice('q1', 'Amélie', publicOwnerId: 'owner1'));
+
+    expect(id, 'added1');
+    expect(sent.method, 'POST');
+    expect(sent.url.toString(),
+        'https://api.elevenlabs.io/v1/voices/add/owner1/q1');
+    expect(jsonDecode(sent.body), {'new_name': 'Amélie'});
+  });
 }

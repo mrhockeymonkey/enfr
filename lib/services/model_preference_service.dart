@@ -2,7 +2,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ModelPreferenceService {
   static const _key = 'mistral_model';
-  static const defaultModel = 'mistral-small-latest';
+  static const defaultModel = 'mistral-large-latest';
   static const _storage = FlutterSecureStorage(
     webOptions: WebOptions(dbName: 'enfr', publicKey: _key),
   );
