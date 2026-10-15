@@ -1,4 +1,6 @@
+import 'package:enfr/constants/voices.dart';
 import 'package:enfr/services/api_key_service.dart';
+import 'package:enfr/services/eleven_labs_settings_service.dart';
 import 'package:enfr/services/model_preference_service.dart';
 import 'package:flutter/material.dart';
 import 'package:mistralai_client_dart/mistralai_client_dart.dart';
@@ -24,11 +26,24 @@ class _SettingsPageState extends State<SettingsPage> {
   String? _selectedModel;
   bool _loadingModels = false;
 
+  final _elevenLabsController = TextEditingController();
+  bool _elevenLabsObscure = true;
+
+  String? _selectedVoice;
+
   @override
   void initState() {
     super.initState();
     ApiKeyService.loadKey().then((key) {
       if (key != null && mounted) setState(() => _controller.text = key);
+    });
+    ElevenLabsSettingsService.loadVoice().then((voice) {
+      if (mounted) setState(() => _selectedVoice = voice);
+    });
+    ElevenLabsSettingsService.loadKey().then((key) {
+      if (key != null && mounted) {
+        setState(() => _elevenLabsController.text = key);
+      }
     });
     ModelPreferenceService.loadModel().then((model) {
       if (mounted) {
@@ -44,6 +59,7 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   void dispose() {
     _controller.dispose();
+    _elevenLabsController.dispose();
     super.dispose();
   }
 
@@ -82,18 +98,28 @@ class _SettingsPageState extends State<SettingsPage> {
     if (_selectedModel != null) {
       await ModelPreferenceService.saveModel(_selectedModel!);
     }
+    await ElevenLabsSettingsService.saveKey(_elevenLabsController.text.trim());
+    if (_selectedVoice != null) {
+      await ElevenLabsSettingsService.saveVoice(_selectedVoice!);
+    }
     if (mounted) {
+      // The root ScaffoldMessenger keeps showing this on the page below.
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Settings saved')));
+      Navigator.of(context).pop();
     }
   }
 
   Future<void> _clear() async {
     await ApiKeyService.clearKey();
+    await ElevenLabsSettingsService.clearKey();
     if (mounted) {
-      setState(() => _controller.clear());
+      setState(() {
+        _controller.clear();
+        _elevenLabsController.clear();
+      });
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('API key cleared')));
+          .showSnackBar(const SnackBar(content: Text('API keys cleared')));
     }
   }
 
@@ -104,7 +130,7 @@ class _SettingsPageState extends State<SettingsPage> {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: const Text('Settings'),
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -119,7 +145,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 hintText: 'Enter your Mistral API key',
                 border: const OutlineInputBorder(),
                 suffixIcon: IconButton(
-                  icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
+                  icon:
+                      Icon(_obscure ? Icons.visibility : Icons.visibility_off),
                   onPressed: () => setState(() => _obscure = !_obscure),
                 ),
               ),
@@ -156,6 +183,42 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
               ],
             ),
+            const SizedBox(height: 24),
+            const Text('ElevenLabs API Key',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _elevenLabsController,
+              obscureText: _elevenLabsObscure,
+              decoration: InputDecoration(
+                hintText: 'Enter your ElevenLabs API key',
+                border: const OutlineInputBorder(),
+                suffixIcon: IconButton(
+                  icon: Icon(_elevenLabsObscure
+                      ? Icons.visibility
+                      : Icons.visibility_off),
+                  onPressed: () =>
+                      setState(() => _elevenLabsObscure = !_elevenLabsObscure),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            const Text('Voice', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              // Rebuilt once the saved voice has loaded, so it shows that
+              // voice rather than the empty initial value.
+              key: ValueKey(_selectedVoice != null),
+              initialValue: _selectedVoice,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+              ),
+              items: kVoices
+                  .map(
+                      (v) => DropdownMenuItem(value: v.id, child: Text(v.name)))
+                  .toList(),
+              onChanged: (value) => setState(() => _selectedVoice = value),
+            ),
             const SizedBox(height: 16),
             Row(
               children: [
@@ -166,7 +229,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             const SizedBox(height: 24),
             const Text(
-              'Your key is stored in browser localStorage.',
+              'Your keys are stored in browser localStorage.',
               style: TextStyle(fontSize: 12, color: Colors.grey),
             ),
           ],
