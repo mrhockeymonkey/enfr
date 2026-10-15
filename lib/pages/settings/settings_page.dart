@@ -1,5 +1,7 @@
 import 'package:enfr/services/api_key_service.dart';
+import 'package:enfr/services/eleven_labs_settings_service.dart';
 import 'package:enfr/services/model_preference_service.dart';
+import 'package:enfr/services/text_to_speech_service.dart';
 import 'package:flutter/material.dart';
 import 'package:mistralai_client_dart/mistralai_client_dart.dart';
 
@@ -24,11 +26,38 @@ class _SettingsPageState extends State<SettingsPage> {
   String? _selectedModel;
   bool _loadingModels = false;
 
+  final _elevenLabsController = TextEditingController();
+  bool _elevenLabsObscure = true;
+
+  /// Voice id → display name. Starts with just the saved voice, by id, until
+  /// the account's voices are fetched.
+  Map<String, String> _voices = {};
+  String? _selectedVoice;
+  bool _loadingVoices = false;
+
   @override
   void initState() {
     super.initState();
     ApiKeyService.loadKey().then((key) {
       if (key != null && mounted) setState(() => _controller.text = key);
+    });
+    ElevenLabsSettingsService.loadVoice().then((voice) {
+      if (mounted) {
+        setState(() {
+          _selectedVoice = voice;
+          _voices.putIfAbsent(
+              voice,
+              () => voice == ElevenLabsSettingsService.defaultVoice
+                  ? 'George (default)'
+                  : voice);
+        });
+      }
+    });
+    ElevenLabsSettingsService.loadKey().then((key) {
+      if (key != null && mounted) {
+        setState(() => _elevenLabsController.text = key);
+        _refreshVoices();
+      }
     });
     ModelPreferenceService.loadModel().then((model) {
       if (mounted) {
@@ -44,7 +73,35 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   void dispose() {
     _controller.dispose();
+    _elevenLabsController.dispose();
     super.dispose();
+  }
+
+  Future<void> _refreshVoices() async {
+    final key = _elevenLabsController.text.trim();
+    if (key.isEmpty) return;
+
+    setState(() => _loadingVoices = true);
+    try {
+      final voices = await TextToSpeechService().listVoices(key);
+      if (mounted && voices.isNotEmpty) {
+        setState(() {
+          _voices = {for (final v in voices) v.id: v.name};
+          if (_selectedVoice == null || !_voices.containsKey(_selectedVoice)) {
+            _selectedVoice = voices.first.id;
+          }
+        });
+      }
+    } catch (_) {
+      // Keys restricted to text-to-speech can't list voices; the saved or
+      // default voice still works.
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Could not fetch voices, showing default')));
+      }
+    } finally {
+      if (mounted) setState(() => _loadingVoices = false);
+    }
   }
 
   Future<void> _refreshModels() async {
@@ -82,6 +139,10 @@ class _SettingsPageState extends State<SettingsPage> {
     if (_selectedModel != null) {
       await ModelPreferenceService.saveModel(_selectedModel!);
     }
+    await ElevenLabsSettingsService.saveKey(_elevenLabsController.text.trim());
+    if (_selectedVoice != null) {
+      await ElevenLabsSettingsService.saveVoice(_selectedVoice!);
+    }
     if (mounted) {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Settings saved')));
@@ -90,10 +151,14 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _clear() async {
     await ApiKeyService.clearKey();
+    await ElevenLabsSettingsService.clearKey();
     if (mounted) {
-      setState(() => _controller.clear());
+      setState(() {
+        _controller.clear();
+        _elevenLabsController.clear();
+      });
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('API key cleared')));
+          .showSnackBar(const SnackBar(content: Text('API keys cleared')));
     }
   }
 
@@ -104,7 +169,7 @@ class _SettingsPageState extends State<SettingsPage> {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: const Text('Settings'),
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -156,6 +221,61 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
               ],
             ),
+            const SizedBox(height: 24),
+            const Text('ElevenLabs API Key',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _elevenLabsController,
+              obscureText: _elevenLabsObscure,
+              decoration: InputDecoration(
+                hintText: 'Enter your ElevenLabs API key',
+                border: const OutlineInputBorder(),
+                suffixIcon: IconButton(
+                  icon: Icon(_elevenLabsObscure
+                      ? Icons.visibility
+                      : Icons.visibility_off),
+                  onPressed: () =>
+                      setState(() => _elevenLabsObscure = !_elevenLabsObscure),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            const Text('Voice', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    // Keyed on the voice list so the field picks up a new
+                    // selection after the voices are fetched.
+                    key: ValueKey(_voices.keys.join(',')),
+                    initialValue: _selectedVoice,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                    ),
+                    items: _voices.entries
+                        .map((v) => DropdownMenuItem(
+                            value: v.key, child: Text(v.value)))
+                        .toList(),
+                    onChanged: (value) =>
+                        setState(() => _selectedVoice = value),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: _loadingVoices
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.refresh),
+                  onPressed: _loadingVoices ? null : _refreshVoices,
+                  tooltip: 'Refresh voices',
+                ),
+              ],
+            ),
             const SizedBox(height: 16),
             Row(
               children: [
@@ -166,7 +286,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             const SizedBox(height: 24),
             const Text(
-              'Your key is stored in browser localStorage.',
+              'Your keys are stored in browser localStorage.',
               style: TextStyle(fontSize: 12, color: Colors.grey),
             ),
           ],

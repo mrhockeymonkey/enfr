@@ -39,6 +39,8 @@ dependencies:
   flutter_math_fork: 0.7.4 # See isse https://github.com/Infinitix-LLC/gpt_markdown/issues/62
   collection: ^1.19.1
   flutter_secure_storage: ^11.0.0
+  http: ^1.4.0
+  web: ^1.1.1
 
 dev_dependencies:
   flutter_test:

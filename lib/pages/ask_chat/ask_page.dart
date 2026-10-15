@@ -3,7 +3,10 @@ import 'package:enfr/constants/app_version.dart';
 import 'package:enfr/constants/prompts.dart';
 import 'package:enfr/data/prompt_repository.dart';
 import 'package:enfr/services/api_key_service.dart';
+import 'package:enfr/services/clip_player.dart';
+import 'package:enfr/services/eleven_labs_settings_service.dart';
 import 'package:enfr/services/model_preference_service.dart';
+import 'package:enfr/services/text_to_speech_service.dart';
 import 'package:flutter/material.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
 import 'package:mistralai_client_dart/mistralai_client_dart.dart';
@@ -20,7 +23,8 @@ const _kChipFadeHeight = 64.0;
 enum AskMode {
   translate('Translate', Icons.translate),
   check('Check', Icons.spellcheck),
-  chat('Chat', Icons.chat_bubble_outline);
+  chat('Chat', Icons.chat_bubble_outline),
+  listen('Listen', Icons.volume_up);
 
   const AskMode(this.label, this.icon);
 
@@ -31,7 +35,7 @@ enum AskMode {
   String? get promptTemplate => switch (this) {
         AskMode.translate => PromptRepository.translatePrompt,
         AskMode.check => PromptRepository.checkPrompt,
-        AskMode.chat => null,
+        AskMode.chat || AskMode.listen => null,
       };
 }
 
@@ -55,6 +59,14 @@ class _AskChatPageState extends State<AskChatPage> {
   /// so switching the chip afterwards doesn't restyle an existing answer.
   AskMode _answerMode = AskMode.translate;
 
+  /// Holds the last spoken clip so it can be replayed without calling
+  /// ElevenLabs again.
+  final _clipPlayer = ClipPlayer();
+  final _tts = TextToSpeechService();
+  String _listenText = "";
+  bool _listenLoading = false;
+  String? _listenError;
+
   @override
   void initState() {
     super.initState();
@@ -66,6 +78,7 @@ class _AskChatPageState extends State<AskChatPage> {
   @override
   void dispose() {
     _controller.dispose();
+    _clipPlayer.dispose();
     super.dispose();
   }
 
@@ -112,6 +125,7 @@ class _AskChatPageState extends State<AskChatPage> {
   }
 
   Future<void> _submitQuestion(String content) async {
+    if (_mode == AskMode.listen) return _submitListen(content);
     final key = await ApiKeyService.loadKey();
     if (!mounted) return;
     if (key == null || key.isEmpty) {
@@ -126,6 +140,90 @@ class _AskChatPageState extends State<AskChatPage> {
       _showExplainBtn = false;
       _explanationStream = Stream.empty();
     });
+  }
+
+  Future<void> _submitListen(String content) async {
+    final text = content.trim();
+    if (text.isEmpty) return;
+    final key = await ElevenLabsSettingsService.loadKey();
+    if (!mounted) return;
+    if (key == null || key.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Add your ElevenLabs API key in Settings first')));
+      return;
+    }
+    _clipPlayer.clear();
+    setState(() {
+      _answerMode = AskMode.listen;
+      _listenText = text;
+      _listenLoading = true;
+      _listenError = null;
+    });
+    try {
+      final voice = await ElevenLabsSettingsService.loadVoice();
+      final clip =
+          await _tts.synthesize(text: text, apiKey: key, voiceId: voice);
+      // Ignore a reply that a newer submission has overtaken.
+      if (!mounted || text != _listenText) return;
+      _clipPlayer.load(clip);
+      setState(() => _listenLoading = false);
+      await _playClip();
+    } catch (e) {
+      if (!mounted || text != _listenText) return;
+      setState(() {
+        _listenLoading = false;
+        _listenError = '$e';
+      });
+    }
+  }
+
+  /// Plays the cached clip. The browser may refuse autoplay; the clip stays
+  /// cached, so the play button still works.
+  Future<void> _playClip() async {
+    try {
+      await _clipPlayer.play();
+    } catch (e) {
+      debugPrint('Could not play clip: $e');
+    }
+  }
+
+  Widget _listenOutput() {
+    final theme = Theme.of(context);
+    return Column(
+      spacing: 12,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: SelectableText(
+            _listenText,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyLarge
+                ?.copyWith(fontWeight: FontWeight.bold),
+          ),
+        ),
+        if (_listenLoading)
+          const SizedBox(
+            width: 48,
+            height: 48,
+            child: Padding(
+              padding: EdgeInsets.all(12),
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          )
+        else if (_clipPlayer.hasClip)
+          IconButton.filledTonal(
+            icon: const Icon(Icons.volume_up),
+            tooltip: 'Play again',
+            onPressed: _playClip,
+          ),
+        if (_listenError != null)
+          Text(
+            _listenError!,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: theme.colorScheme.error),
+          ),
+      ],
+    );
   }
 
   Future<void> _submitExplain(String content) async {
@@ -333,7 +431,9 @@ class _AskChatPageState extends State<AskChatPage> {
                         padding:
                             const EdgeInsets.only(bottom: _kChipFadeHeight),
                         children: [
-                          if (_answerMode == AskMode.translate) ...[
+                          if (_answerMode == AskMode.listen)
+                            _listenOutput()
+                          else if (_answerMode == AskMode.translate) ...[
                             Theme(
                               data: Theme.of(context).copyWith(
                                 textTheme: Theme.of(context).textTheme.copyWith(
@@ -391,6 +491,7 @@ class _AskChatPageState extends State<AskChatPage> {
                       AskMode.translate => "What do you want to say?",
                       AskMode.check => "Que veux-tu vérifier?",
                       AskMode.chat => "Ask anything",
+                      AskMode.listen => "Qu'est-ce que tu veux entendre ?",
                     },
                     border: OutlineInputBorder(
                       borderRadius: _kInputRadius,
