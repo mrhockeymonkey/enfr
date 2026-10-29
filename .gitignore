@@ -34,6 +34,7 @@ migrate_working_dir/
 
 # hide api keys
 /lib/data/api_keys.dart
+/dev_keys.json
 
 # FVM Version Cache
 .fvm/
