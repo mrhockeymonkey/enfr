@@ -9,4 +9,9 @@ class Voice {
 /// The voices the Listen mode can use. The first is the default.
 const List<Voice> kVoices = [
   Voice('93nuHbke4dTER9x2pDwE', 'Adam'),
+  Voice('GMiYOSKrjrtKjU1G8xyM', 'Kasandra'),
+  Voice('KbgdAMqTSb5aaLUaXEm2', 'Antoine'),
+  Voice('WW0JfNPk5DgcQdM0d6X6', 'Claudia'),
+  Voice('UJCi4DDncuo0VJDSIegj', 'Amelie'),
+  Voice('mVjOqyqTPfwlXPjV5sjX', 'Thierry'),
 ];
