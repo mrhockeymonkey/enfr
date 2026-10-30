@@ -1,7 +1,9 @@
 import 'dart:math';
 
+import 'package:enfr/pages/verbs/widgets/tense_chip.dart';
 import 'package:enfr/services/conjugation_quiz.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/link.dart';
 
 class QuestionCard extends StatefulWidget {
   final ConjugationQuestion question;
@@ -56,38 +58,89 @@ class _QuestionCardState extends State<QuestionCard>
     _focusNode.requestFocus();
   }
 
+  /// The prompt with the answer typed straight into its blank, like a
+  /// worksheet on paper. The blank starts at a fixed width, so it gives away
+  /// nothing about the answer, and grows as the user types.
+  Widget _buildSentence(ThemeData theme) {
+    final (before, after) = widget.question.prompt;
+    final style = theme.textTheme.headlineSmall;
+    final wrong = _attempts > 0 && !_revealed;
+    UnderlineInputBorder underline(Color color, [double width = 1]) =>
+        UnderlineInputBorder(
+          borderSide: BorderSide(
+              color: wrong ? theme.colorScheme.error : color,
+              width: wrong ? 2 : width),
+        );
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.baseline,
+      textBaseline: TextBaseline.alphabetic,
+      children: [
+        if (before.isNotEmpty) Text(before, style: style),
+        Flexible(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 120),
+            child: IntrinsicWidth(
+              child: TextField(
+                controller: _controller,
+                focusNode: _focusNode,
+                autofocus: true,
+                autocorrect: false,
+                enableSuggestions: false,
+                textAlign: TextAlign.center,
+                style: style,
+                decoration: InputDecoration(
+                  isDense: true,
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  enabledBorder: underline(theme.colorScheme.onSurfaceVariant),
+                  focusedBorder: underline(theme.colorScheme.primary, 2),
+                ),
+                onSubmitted: _submit,
+              ),
+            ),
+          ),
+        ),
+        if (after.isNotEmpty) Text(after, style: style),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final question = widget.question;
-    final errorBorder = _attempts > 0 && !_revealed
-        ? OutlineInputBorder(
-            borderRadius: BorderRadius.circular(25.0),
-            borderSide: BorderSide(color: theme.colorScheme.error, width: 2),
-          )
-        : null;
-
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          question.verb.infinitive,
-          style: theme.textTheme.displaySmall
-              ?.copyWith(fontWeight: FontWeight.bold),
-          textAlign: TextAlign.center,
+        // A real link (an <a> on web) rather than a launchUrl call, so a tap
+        // on Android can hand off to the WordReference app if installed.
+        Link(
+          uri: question.verb.wordReferenceUrl,
+          target: LinkTarget.blank,
+          builder: (context, followLink) => InkWell(
+            onTap: followLink,
+            borderRadius: BorderRadius.circular(8),
+            child: Text(
+              question.verb.infinitive,
+              style: theme.textTheme.displaySmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                decoration: TextDecoration.underline,
+                decorationThickness: 1,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
         ),
         const SizedBox(height: 4),
         Text(
-          'Question ${question.number} of ${ConjugationQuiz.questionsPerVerb}',
+          'Question ${question.number} of ${ConjugationQuiz.questionsPerSession}',
           style: theme.textTheme.bodySmall
               ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
         ),
-        const SizedBox(height: 32),
-        Text(
-          question.prompt,
-          style: theme.textTheme.headlineSmall,
-          textAlign: TextAlign.center,
-        ),
+        const SizedBox(height: 12),
+        TenseChip(tense: question.tense),
         const SizedBox(height: 24),
         AnimatedBuilder(
           animation: _shake,
@@ -96,23 +149,7 @@ class _QuestionCardState extends State<QuestionCard>
             final dx = sin(t * pi * 4) * 8 * (1 - t);
             return Transform.translate(offset: Offset(dx, 0), child: child);
           },
-          child: TextField(
-            controller: _controller,
-            focusNode: _focusNode,
-            autofocus: true,
-            autocorrect: false,
-            enableSuggestions: false,
-            textAlign: TextAlign.center,
-            decoration: InputDecoration(
-              hintText: 'Type the conjugated form',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(25.0),
-              ),
-              enabledBorder: errorBorder,
-              focusedBorder: errorBorder,
-            ),
-            onSubmitted: _submit,
-          ),
+          child: _buildSentence(theme),
         ),
         const SizedBox(height: 16),
         if (_revealed) ...[

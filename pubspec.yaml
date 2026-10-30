@@ -41,6 +41,7 @@ dependencies:
   flutter_secure_storage: ^11.0.0
   http: ^1.4.0
   web: ^1.1.1
+  url_launcher: ^6.3.3
 
 dev_dependencies:
   flutter_test:
@@ -72,6 +73,7 @@ flutter:
     - assets/verbs/verbs_moderate.json
     - assets/verbs/verbs_uncommon.json
     - assets/verbs/verbs_rare.json
+    - assets/verbs/h_aspire.txt
 
   # Bundle Roboto locally so the app does not fetch it from fonts.gstatic.com
   # at runtime. `--no-web-resources-cdn` alone does not prevent this fetch

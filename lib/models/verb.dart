@@ -15,6 +15,10 @@ class Verb {
   /// reflexive pronoun ("me lève", "lève-toi").
   final bool pronominal;
 
+  /// True when the initial h is aspirated, so je does not elide before it
+  /// ("je hais", not "j'hais"). Listed in `assets/verbs/h_aspire.txt`.
+  final bool hAspire;
+
   const Verb({
     required this.infinitive,
     required this.tier,
@@ -22,10 +26,12 @@ class Verb {
     required this.forms,
     this.auxiliary = Auxiliary.avoir,
     this.pronominal = false,
+    this.hAspire = false,
   });
 
   static Verb? fromJson(
-      String infinitive, VerbTier tier, Map<String, dynamic> json) {
+      String infinitive, VerbTier tier, Map<String, dynamic> json,
+      {bool hAspire = false}) {
     final forms = <VerbTense, List<String?>>{};
     for (final tense in VerbTense.values) {
       final code = tense.code;
@@ -51,12 +57,20 @@ class Verb {
           ? Auxiliary.etre
           : Auxiliary.fromJson(meta is Map ? meta['auxiliary'] : null),
       pronominal: pronominal,
+      hAspire: hAspire,
     );
   }
 
   /// Whether the past participle agrees with the subject in compound tenses
   /// (être-auxiliary and pronominal verbs).
   bool get participleAgrees => pronominal || auxiliary == Auxiliary.etre;
+
+  /// This verb's WordReference French–English entry. The apostrophe is
+  /// escaped too ("s%27asseoir"), which [Uri.encodeComponent] leaves alone.
+  Uri get wordReferenceUrl => Uri.parse(
+        'https://www.wordreference.com/fren/'
+        '${Uri.encodeComponent(infinitive).replaceAll("'", '%27')}',
+      );
 
   bool hasTense(VerbTense tense) {
     if (tense.compound) {

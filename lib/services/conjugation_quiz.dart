@@ -3,7 +3,6 @@ import 'dart:math';
 import 'package:enfr/models/auxiliary.dart';
 import 'package:enfr/models/verb.dart';
 import 'package:enfr/models/verb_tense.dart';
-import 'package:enfr/services/verb_selector.dart';
 
 class ConjugationQuestion {
   final Verb verb;
@@ -13,7 +12,8 @@ class ConjugationQuestion {
 
   /// Gender and number the answer must agree with. Set only for a compound
   /// tense of a verb whose participle agrees with the subject; the prompt then
-  /// names the gender ("Elle", "Ils", "Je (f)") so exactly one form is right.
+  /// names the gender ("Elle", "Ils", "Je _____ (f)") so exactly one form is
+  /// right.
   final Agreement? agreement;
 
   const ConjugationQuestion({
@@ -26,18 +26,34 @@ class ConjugationQuestion {
 
   String get answer => verb.form(tense, slot, agreement: agreement)!;
 
-  String get prompt {
+  /// The text before and after the blank the answer fills. The tense is shown
+  /// beside the sentence rather than in it, so only a person or agreement that
+  /// has no subject slot ("tu" for the imperative, "féminin pluriel" for the
+  /// participle) is bracketed after the blank, as is a gender the subject
+  /// pronoun can't show ("Tu _____ (m)").
+  (String, String) get prompt {
     final label = tense.slots[slot];
-    if (!tense.subjectPrefix) {
-      return '_____ (${tense.displayName}, $label)';
-    }
-    return '${_subject(label)}_____ (${tense.displayName})';
+    if (!tense.subjectPrefix) return ('', ' ($label)');
+    final agreement = this.agreement;
+    final showsGender = slot == 2 || slot == 5;
+    return (
+      _subject(label),
+      agreement == null || showsGender ? '' : ' (${agreement.label})',
+    );
   }
 
   static const _vowels = 'aeiouàâäéèêëîïôöùûü';
 
+  /// Whether je elides before the answer: it starts with a vowel, or with an
+  /// h that is not aspirated ("j'habite", but "je hais").
+  bool get _elides {
+    final first = answer[0];
+    return _vowels.contains(first) || (first == 'h' && !verb.hAspire);
+  }
+
   /// The capitalised subject and the space (or elision) before the blank:
-  /// "Nous ", "Elle ", "Je (f) ", or "J'" when the answer starts with a vowel.
+  /// "Nous ", "Elle ", or "J'" when [_elides]. With an [agreement], il/elle
+  /// and ils/elles narrow to the pronoun of that gender.
   String _subject(String label) {
     final agreement = this.agreement;
     final subject = agreement == null
@@ -45,9 +61,9 @@ class ConjugationQuestion {
         : switch (slot) {
             2 => agreement.feminine ? 'elle' : 'il',
             5 => agreement.feminine ? 'elles' : 'ils',
-            _ => '$label (${agreement.label})',
+            _ => label,
           };
-    if (slot == 0 && _vowels.contains(answer[0])) return "J'";
+    if (slot == 0 && _elides) return "J'";
     return '${subject[0].toUpperCase()}${subject.substring(1)} ';
   }
 
@@ -61,37 +77,29 @@ class ConjugationQuestion {
 }
 
 class ConjugationQuiz {
-  static const questionsPerVerb = 5;
+  static const questionsPerSession = 25;
 
-  final List<Verb> _pool;
+  final Verb verb;
   final Set<VerbTense> _tenses;
-  final VerbSelector _selector;
   final Random _random;
 
-  Verb? _currentVerb;
   int _asked = 0;
   (VerbTense, int, Agreement?)? _last;
 
   ConjugationQuiz({
-    required List<Verb> verbs,
+    required this.verb,
     required Set<VerbTense> tenses,
-    VerbSelector? selector,
     Random? random,
   })  : _tenses = tenses,
-        _pool = verbs
-            .where((v) => tenses.any((t) => v.slotsFor(t).isNotEmpty))
-            .toList(),
-        _selector = selector ?? RandomVerbSelector(random),
         _random = random ?? Random();
 
-  bool get isEmpty => _pool.isEmpty;
+  /// Whether [verb] has at least one form in any of [tenses].
+  static bool canQuiz(Verb verb, Set<VerbTense> tenses) =>
+      tenses.any((t) => verb.slotsFor(t).isNotEmpty);
+
+  bool get isFinished => _asked >= questionsPerSession;
 
   ConjugationQuestion next() {
-    if (_currentVerb == null || _asked >= questionsPerVerb) {
-      _currentVerb = _selector.next(_pool);
-      _asked = 0;
-    }
-    final verb = _currentVerb!;
     final tenses = _tenses.where((t) => verb.slotsFor(t).isNotEmpty).toList();
     final choices = tenses.fold(0, (n, t) => n + verb.slotsFor(t).length);
     (VerbTense, int, Agreement?) pick;

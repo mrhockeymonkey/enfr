@@ -1,5 +1,6 @@
 import 'package:enfr/models/verb.dart';
 import 'package:enfr/models/verb_tense.dart';
+import 'package:enfr/pages/verbs/widgets/tense_chip.dart';
 import 'package:flutter/material.dart';
 
 class VerbConjugationSheet extends StatefulWidget {
@@ -46,8 +47,8 @@ class _VerbConjugationSheetState extends State<VerbConjugationSheet> {
             runSpacing: 8,
             children: [
               for (final tense in tenses)
-                ChoiceChip(
-                  label: Text(tense.displayName),
+                TenseChip(
+                  tense: tense,
                   selected: _selected == tense,
                   onSelected: (_) => setState(() => _selected = tense),
                 ),
