@@ -212,3 +212,12 @@ For all 6-element arrays, the index order is always:
   npm package and carried over from the previous version of these files.
 - Frequency scoring: [`wordfreq`](https://github.com/rspeer/wordfreq) Python package,
   French corpus data.
+
+## Aspirated h (`h_aspire.txt`)
+
+`h_aspire.txt` lists the verbs whose initial h is aspirated, so *je* does not elide
+before them (*je hais*, *je hurle*). Every other verb starting with h is treated as
+having a silent h and elides (*j'habite*). The list is kept by hand, not generated
+from Lefff. It has one infinitive per line, spelled as the `verbs_*.json` key, with
+`#` comments, and `VerbRepository` reads it into `Verb.hAspire`.
+`test/verb_assets_test.dart` checks every entry exists in a tier.

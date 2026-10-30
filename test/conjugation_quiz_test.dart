@@ -5,7 +5,6 @@ import 'package:enfr/models/verb.dart';
 import 'package:enfr/models/verb_tense.dart';
 import 'package:enfr/models/verb_tier.dart';
 import 'package:enfr/services/conjugation_quiz.dart';
-import 'package:enfr/services/verb_selector.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Verb _verb(
@@ -13,6 +12,7 @@ Verb _verb(
   Map<VerbTense, List<String?>> forms, {
   Auxiliary auxiliary = Auxiliary.avoir,
   bool pronominal = false,
+  bool hAspire = false,
 }) =>
     Verb(
       infinitive: infinitive,
@@ -21,6 +21,7 @@ Verb _verb(
       forms: forms,
       auxiliary: auxiliary,
       pronominal: pronominal,
+      hAspire: hAspire,
     );
 
 final _parler = _verb('parler', {
@@ -85,13 +86,6 @@ final _onlyPasseSimple = _verb('gésir', {
   VerbTense.passeSimple: ['gus', 'gus', 'gut', 'gûmes', 'gûtes', 'gurent'],
 });
 
-class _SequentialSelector implements VerbSelector {
-  int calls = 0;
-
-  @override
-  Verb next(List<Verb> pool) => pool[calls++ % pool.length];
-}
-
 void main() {
   group('ConjugationQuestion', () {
     test('prompt prefixes the capitalised subject for person tenses', () {
@@ -102,7 +96,7 @@ void main() {
         slot: 3,
         number: 1,
       );
-      expect(question.prompt, 'Nous _____ (futur)');
+      expect(question.prompt, ('Nous ', ''));
     });
 
     test('prompt names the agreement for the past participle', () {
@@ -113,7 +107,7 @@ void main() {
         slot: 3,
         number: 1,
       );
-      expect(question.prompt, '_____ (participe passé, féminin pluriel)');
+      expect(question.prompt, ('', ' (féminin pluriel)'));
     });
 
     test('prompt names the person after the blank for the imperative', () {
@@ -123,7 +117,7 @@ void main() {
         slot: 1,
         number: 1,
       );
-      expect(question.prompt, '_____ (impératif, tu)');
+      expect(question.prompt, ('', ' (tu)'));
       expect(question.answer, 'parle');
     });
 
@@ -135,7 +129,26 @@ void main() {
         number: 1,
       );
       expect(question.answer, 'ai parlé');
-      expect(question.prompt, "J'_____ (passé composé)");
+      expect(question.prompt, ("J'", ''));
+    });
+
+    test('prompt elides je before a silent h but not an aspirated one', () {
+      ConjugationQuestion je(Verb verb) => ConjugationQuestion(
+          verb: verb, tense: VerbTense.present, slot: 0, number: 1);
+      const persons = [null, null, null, null, null, null];
+
+      final habiter = _verb('habiter', {
+        VerbTense.present: ['habite', ...persons.skip(1)],
+      });
+      expect(je(habiter).prompt, ("J'", ''));
+
+      final hair = _verb(
+          'haïr',
+          {
+            VerbTense.present: ['hais', ...persons.skip(1)],
+          },
+          hAspire: true);
+      expect(je(hair).prompt, ('Je ', ''));
     });
 
     test('prompt fixes the gender for an agreeing passé composé', () {
@@ -149,19 +162,19 @@ void main() {
           );
 
       final elle = question(_partir, 2, Agreement.feminineSingular);
-      expect(elle.prompt, 'Elle _____ (passé composé)');
+      expect(elle.prompt, ('Elle ', ''));
       expect(elle.answer, 'est partie');
 
       final ils = question(_seLever, 5, Agreement.masculinePlural);
-      expect(ils.prompt, 'Ils _____ (passé composé)');
+      expect(ils.prompt, ('Ils ', ''));
       expect(ils.answer, 'se sont levés');
 
       final je = question(_partir, 0, Agreement.feminineSingular);
-      expect(je.prompt, 'Je (f) _____ (passé composé)');
+      expect(je.prompt, ('Je ', ' (f)'));
       expect(je.answer, 'suis partie');
 
       final vous = question(_partir, 4, Agreement.femininePlural);
-      expect(vous.prompt, 'Vous (f pl) _____ (passé composé)');
+      expect(vous.prompt, ('Vous ', ' (f pl)'));
       expect(vous.answer, 'êtes parties');
     });
 
@@ -195,29 +208,38 @@ void main() {
   });
 
   group('ConjugationQuiz', () {
-    test('asks five questions per verb before moving on', () {
-      final selector = _SequentialSelector();
+    test('asks one verb for a numbered session of 25 questions', () {
       final quiz = ConjugationQuiz(
-        verbs: [_parler, _finir],
+        verb: _parler,
         tenses: {VerbTense.present},
-        selector: selector,
         random: Random(1),
       );
 
-      final first = [for (var i = 0; i < 5; i++) quiz.next()];
-      expect(first.map((q) => q.verb.infinitive), everyElement('parler'));
-      expect(first.map((q) => q.number), [1, 2, 3, 4, 5]);
-      expect(selector.calls, 1);
+      final questions = [
+        for (var i = 0; i < ConjugationQuiz.questionsPerSession; i++)
+          quiz.next()
+      ];
+      expect(questions.map((q) => q.verb.infinitive), everyElement('parler'));
+      expect(questions.map((q) => q.number), [for (var i = 1; i <= 25; i++) i]);
+      expect(quiz.isFinished, isTrue);
+    });
 
-      final sixth = quiz.next();
-      expect(sixth.verb.infinitive, 'finir');
-      expect(sixth.number, 1);
-      expect(selector.calls, 2);
+    test('is not finished before the last question', () {
+      final quiz = ConjugationQuiz(
+        verb: _parler,
+        tenses: {VerbTense.present},
+        random: Random(1),
+      );
+      expect(quiz.isFinished, isFalse);
+      for (var i = 0; i < ConjugationQuiz.questionsPerSession - 1; i++) {
+        quiz.next();
+      }
+      expect(quiz.isFinished, isFalse);
     });
 
     test('only asks enabled tenses the verb actually has', () {
       final quiz = ConjugationQuiz(
-        verbs: [_parler],
+        verb: _parler,
         tenses: {
           VerbTense.futur,
           VerbTense.pastParticiple,
@@ -235,7 +257,7 @@ void main() {
 
     test('never lands on a NA imperative slot', () {
       final quiz = ConjugationQuiz(
-        verbs: [_parler],
+        verb: _parler,
         tenses: {VerbTense.imperatif},
         random: Random(3),
       );
@@ -246,62 +268,37 @@ void main() {
     });
 
     test('sets an agreement only for agreeing passé composé questions', () {
-      final quiz = ConjugationQuiz(
-        verbs: [_parler, _partir, _seLever],
-        tenses: {VerbTense.passeCompose, VerbTense.present},
-        random: Random(5),
-      );
-
       final seen = <Agreement>{};
-      for (var i = 0; i < 90; i++) {
-        final q = quiz.next();
-        expect(q.answer, isNotEmpty);
-        if (q.tense == VerbTense.passeCompose && q.verb.participleAgrees) {
-          expect(q.agreement, isNotNull, reason: q.verb.infinitive);
-          expect(q.agreement, isIn(Agreement.validFor(q.slot)));
-          seen.add(q.agreement!);
-        } else {
-          expect(q.agreement, isNull, reason: q.verb.infinitive);
+      for (final verb in [_parler, _partir, _seLever]) {
+        final quiz = ConjugationQuiz(
+          verb: verb,
+          tenses: {VerbTense.passeCompose, VerbTense.present},
+          random: Random(5),
+        );
+        for (var i = 0; i < 30; i++) {
+          final q = quiz.next();
+          expect(q.answer, isNotEmpty);
+          if (q.tense == VerbTense.passeCompose && q.verb.participleAgrees) {
+            expect(q.agreement, isNotNull, reason: q.verb.infinitive);
+            expect(q.agreement, isIn(Agreement.validFor(q.slot)));
+            seen.add(q.agreement!);
+          } else {
+            expect(q.agreement, isNull, reason: q.verb.infinitive);
+          }
         }
       }
       expect(seen.length, greaterThan(1));
     });
 
-    test('excludes verbs lacking every enabled tense', () {
-      final quiz = ConjugationQuiz(
-        verbs: [_parler, _onlyPasseSimple],
-        tenses: {VerbTense.present},
-        random: Random(4),
-      );
-
-      for (var i = 0; i < 50; i++) {
-        expect(quiz.next().verb.infinitive, 'parler');
-      }
-    });
-
-    test('is empty when no verb has an enabled tense', () {
+    test('canQuiz needs at least one enabled tense the verb has', () {
+      expect(ConjugationQuiz.canQuiz(_parler, {}), isFalse);
       expect(
-        ConjugationQuiz(verbs: [_parler], tenses: {}).isEmpty,
-        isTrue,
-      );
+          ConjugationQuiz.canQuiz(_parler, {VerbTense.passeSimple}), isFalse);
       expect(
-        ConjugationQuiz(verbs: [_parler], tenses: {VerbTense.passeSimple})
-            .isEmpty,
-        isTrue,
-      );
-      expect(
-        ConjugationQuiz(verbs: [_finir], tenses: {VerbTense.passeCompose})
-            .isEmpty,
-        isTrue,
-      );
-      expect(
-        ConjugationQuiz(verbs: [], tenses: {VerbTense.present}).isEmpty,
-        isTrue,
-      );
-      expect(
-        ConjugationQuiz(verbs: [_parler], tenses: {VerbTense.present}).isEmpty,
-        isFalse,
-      );
+          ConjugationQuiz.canQuiz(_finir, {VerbTense.passeCompose}), isFalse);
+      expect(ConjugationQuiz.canQuiz(_onlyPasseSimple, {VerbTense.present}),
+          isFalse);
+      expect(ConjugationQuiz.canQuiz(_parler, {VerbTense.present}), isTrue);
     });
   });
 }

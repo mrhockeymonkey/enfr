@@ -38,7 +38,7 @@ override is needed — local and production builds use the same base path.
 
 `--no-web-resources-cdn` bundles Flutter's web assets (fonts, CanvasKit) into the build output instead of pulling them from Google CDNs at runtime, so the app runs in restricted-network / air-gapped environments.
 
-### 2. (Optional) Dev Mistral API key
+### 2. (Optional) Dev Mistral & ElevenLabs API key
 
 To skip pasting the key into Settings on every run, copy
 `dev_keys.example.json` to `dev_keys.json` (gitignored) and fill in your key.

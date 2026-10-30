@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:enfr/data/verb_repository.dart';
 import 'package:enfr/models/auxiliary.dart';
 import 'package:enfr/models/verb.dart';
 import 'package:enfr/models/verb_tense.dart';
@@ -141,5 +142,20 @@ void main() {
         expect(all.containsKey(key), isFalse, reason: key);
       }
     });
+  });
+
+  test('h_aspire.txt lists unique non-pronominal h verbs from the tiers', () {
+    final text = File('assets/verbs/h_aspire.txt').readAsStringSync();
+    final lines = [
+      for (final line in text.split('\n'))
+        if (line.trim() case final l when l.isNotEmpty && !l.startsWith('#')) l
+    ];
+    final verbs = VerbRepository.parseHAspire(text);
+    expect(verbs, hasLength(lines.length), reason: 'duplicate entries');
+    for (final verb in verbs) {
+      expect(verb, startsWith('h'));
+      expect(all.containsKey(verb), isTrue, reason: '$verb is not in any tier');
+      expect(meta(verb)['pronominal'], isNot(true), reason: verb);
+    }
   });
 }

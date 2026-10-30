@@ -228,4 +228,23 @@ void main() {
       expect(Agreement.defaultFor(4), Agreement.masculinePlural);
     });
   });
+
+  group('wordReferenceUrl', () {
+    Verb verb(String infinitive) => Verb(
+        infinitive: infinitive, tier: VerbTier.essential, zipf: 0, forms: {});
+
+    test('links to the French–English entry', () {
+      expect(verb('aller').wordReferenceUrl.toString(),
+          'https://www.wordreference.com/fren/aller');
+    });
+
+    test('escapes apostrophes, spaces and accents', () {
+      expect(verb("s'asseoir").wordReferenceUrl.toString(),
+          'https://www.wordreference.com/fren/s%27asseoir');
+      expect(verb('se lever').wordReferenceUrl.toString(),
+          'https://www.wordreference.com/fren/se%20lever');
+      expect(verb('céder').wordReferenceUrl.toString(),
+          'https://www.wordreference.com/fren/c%C3%A9der');
+    });
+  });
 }
