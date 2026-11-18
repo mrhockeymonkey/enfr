@@ -350,13 +350,21 @@ class _PlayerPageState extends State<PlayerPage>
                   builder: (context, pos, _) => _seekBar(pos, total),
                 ),
               ),
-              Stack(
-                alignment: Alignment.center,
+              // Equal flexible sides keep the transport buttons centred,
+              // while the speed pill lives in its own slot and so can never
+              // overlap them; it scales down if the screen is very narrow.
+              Row(
                 children: [
+                  const Spacer(),
                   _transportButtons(hasCues),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: _speedButton(context),
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: _speedButton(context),
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -407,9 +415,12 @@ class _PlayerPageState extends State<PlayerPage>
           child: OutlinedButton.icon(
             style: OutlinedButton.styleFrom(
               visualDensity: VisualDensity.compact,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              minimumSize: const Size(0, 32),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              textStyle: Theme.of(context).textTheme.labelMedium,
             ),
-            icon: const Icon(Icons.speed, size: 18),
+            icon: const Icon(Icons.speed, size: 16),
             label: Text(formatSpeed(speed)),
             onPressed: () => showModalBottomSheet<void>(
               context: context,
