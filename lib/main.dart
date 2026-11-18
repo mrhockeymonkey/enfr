@@ -1,6 +1,7 @@
 import 'package:enfr/data/prompt_repository.dart';
 import 'package:enfr/pages/ask_chat/ask_page.dart';
 import 'package:enfr/pages/journal/journal_page.dart';
+import 'package:enfr/pages/player/player_page.dart';
 import 'package:enfr/pages/settings/settings_page.dart';
 import 'package:enfr/pages/verbs/verbs_page.dart';
 import 'package:flutter/material.dart';
@@ -35,6 +36,7 @@ class MyApp extends StatelessWidget {
       routes: {
         '/verbs': (context) => const VerbsPage(),
         '/journal': (context) => const JournalPage(),
+        '/player': (context) => const PlayerPage(),
         '/settings': (context) => const SettingsPage(),
       },
     );
