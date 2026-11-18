@@ -3,6 +3,7 @@ import 'package:enfr/services/local_file_picker.dart';
 import 'package:enfr/services/media_player.dart';
 import 'package:enfr/services/sentence_navigator.dart';
 import 'package:enfr/services/subtitle_parser.dart';
+import 'package:enfr/pages/player/speed_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
@@ -349,33 +350,83 @@ class _PlayerPageState extends State<PlayerPage>
                   builder: (context, pos, _) => _seekBar(pos, total),
                 ),
               ),
-              ValueListenableBuilder<bool>(
-                valueListenable: _player.playing,
-                builder: (context, playing, _) => Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    IconButton.filledTonal(
-                      tooltip: 'Previous sentence',
-                      iconSize: 32,
-                      onPressed: hasCues ? _previous : null,
-                      icon: const Icon(Icons.skip_previous),
+              // Equal flexible sides keep the transport buttons centred,
+              // while the speed pill lives in its own slot and so can never
+              // overlap them; it scales down if the screen is very narrow.
+              Row(
+                children: [
+                  const Spacer(),
+                  _transportButtons(hasCues),
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: _speedButton(context),
+                      ),
                     ),
-                    IconButton.filled(
-                      tooltip: playing ? 'Pause' : 'Play',
-                      iconSize: 48,
-                      onPressed: _player.toggle,
-                      icon: Icon(playing ? Icons.pause : Icons.play_arrow),
-                    ),
-                    IconButton.filledTonal(
-                      tooltip: 'Next sentence',
-                      iconSize: 32,
-                      onPressed: hasCues ? _next : null,
-                      icon: const Icon(Icons.skip_next),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _transportButtons(bool hasCues) {
+    return ValueListenableBuilder<bool>(
+      valueListenable: _player.playing,
+      builder: (context, playing, _) => Row(
+        mainAxisSize: MainAxisSize.min,
+        spacing: 16,
+        children: [
+          IconButton.filledTonal(
+            tooltip: 'Previous sentence',
+            iconSize: 32,
+            onPressed: hasCues ? _previous : null,
+            icon: const Icon(Icons.skip_previous),
+          ),
+          IconButton.filled(
+            tooltip: playing ? 'Pause' : 'Play',
+            iconSize: 48,
+            onPressed: _player.toggle,
+            icon: Icon(playing ? Icons.pause : Icons.play_arrow),
+          ),
+          IconButton.filledTonal(
+            tooltip: 'Next sentence',
+            iconSize: 32,
+            onPressed: hasCues ? _next : null,
+            icon: const Icon(Icons.skip_next),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Compact pill showing the current speed; opens the speed sheet.
+  Widget _speedButton(BuildContext context) {
+    return ValueListenableBuilder<double>(
+      valueListenable: _player.speed,
+      builder: (context, speed, _) => MergeSemantics(
+        child: Semantics(
+          label: 'Playback speed',
+          child: OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              minimumSize: const Size(0, 32),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              textStyle: Theme.of(context).textTheme.labelMedium,
+            ),
+            icon: const Icon(Icons.speed, size: 16),
+            label: Text(formatSpeed(speed)),
+            onPressed: () => showModalBottomSheet<void>(
+              context: context,
+              showDragHandle: true,
+              builder: (_) => SpeedSheet(player: _player),
+            ),
           ),
         ),
       ),
@@ -398,9 +449,7 @@ class _PlayerPageState extends State<PlayerPage>
           child: Slider(
             value: value,
             max: max > 0 ? max : 1,
-            onChanged: max > 0
-                ? (v) => setState(() => _dragSeconds = v)
-                : null,
+            onChanged: max > 0 ? (v) => setState(() => _dragSeconds = v) : null,
             onChangeEnd: (v) {
               setState(() => _dragSeconds = null);
               _seek(Duration(milliseconds: (v * 1000).round()));

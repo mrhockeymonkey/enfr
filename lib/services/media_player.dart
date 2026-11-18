@@ -22,6 +22,13 @@ class MediaPlayer {
   /// Set when the browser cannot decode the file.
   final ValueNotifier<String?> error = ValueNotifier(null);
 
+  /// Slowest and fastest playback speeds offered.
+  static const double minSpeed = 0.9;
+  static const double maxSpeed = 1.0;
+
+  /// Playback speed multiplier, kept across file loads.
+  final ValueNotifier<double> speed = ValueNotifier(1.0);
+
   MediaPlayer() {
     _subs.addAll([
       web.EventStreamProviders.playEvent
@@ -53,6 +60,23 @@ class MediaPlayer {
     _url = web.URL.createObjectURL(file);
     _audio.src = _url!;
     _audio.load();
+    // Loading resets playbackRate to defaultPlaybackRate; reapply to be safe.
+    _applySpeed();
+  }
+
+  /// Sets the playback speed, clamped to [minSpeed]..[maxSpeed]. Pitch is
+  /// preserved, so slowed speech doesn't sound lower.
+  void setSpeed(double value) {
+    // Round to hundredths so repeated +/- steps don't drift.
+    speed.value = (value.clamp(minSpeed, maxSpeed) * 100).round() / 100;
+    _applySpeed();
+  }
+
+  void _applySpeed() {
+    _audio
+      ..preservesPitch = true
+      ..defaultPlaybackRate = speed.value
+      ..playbackRate = speed.value;
   }
 
   Future<void> play() async {
@@ -91,9 +115,11 @@ class MediaPlayer {
     playing.dispose();
     duration.dispose();
     error.dispose();
+    speed.dispose();
   }
 
   static Duration _toDuration(num seconds) => seconds.isFinite
-      ? Duration(microseconds: (seconds * Duration.microsecondsPerSecond).round())
+      ? Duration(
+          microseconds: (seconds * Duration.microsecondsPerSecond).round())
       : Duration.zero;
 }
