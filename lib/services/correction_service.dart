@@ -3,8 +3,8 @@ import 'package:enfr/data/prompt_repository.dart';
 import 'package:enfr/models/correction.dart';
 import 'package:enfr/services/api_key_service.dart';
 import 'package:enfr/services/correction_parser.dart';
+import 'package:enfr/services/mistral_chat_service.dart';
 import 'package:enfr/services/model_preference_service.dart';
-import 'package:mistralai_client_dart/mistralai_client_dart.dart';
 
 class MissingApiKeyException implements Exception {
   const MissingApiKeyException();
@@ -28,25 +28,10 @@ class CorrectionService {
           _renderPrevious(previous),
         );
 
-    final client = MistralAIClient(apiKey: key);
-    final response = await client.chatComplete(
-      request: ChatCompletionRequest(
-        model: model,
-        temperature: 0,
-        messages: [
-          UserMessage(content: UserMessageContent.string(prompt)),
-        ],
-      ),
-    );
-
-    final choices = response.choices;
-    if (choices == null || choices.isEmpty) return const [];
-    final messageContent = choices.first.message.content;
-    if (messageContent == null) return const [];
-
-    final raw = messageContent.maybeWhen(
-      string: (s) => s,
-      orElse: () => '',
+    final raw = await MistralChatService().complete(
+      apiKey: key,
+      model: model,
+      messages: [MistralMessage.user(prompt)],
     );
 
     return parseCorrections(raw);

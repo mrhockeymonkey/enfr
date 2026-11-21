@@ -5,11 +5,11 @@ import 'package:enfr/data/prompt_repository.dart';
 import 'package:enfr/services/api_key_service.dart';
 import 'package:enfr/services/clip_player.dart';
 import 'package:enfr/services/eleven_labs_settings_service.dart';
+import 'package:enfr/services/mistral_chat_service.dart';
 import 'package:enfr/services/model_preference_service.dart';
 import 'package:enfr/services/text_to_speech_service.dart';
 import 'package:flutter/material.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
-import 'package:mistralai_client_dart/mistralai_client_dart.dart';
 
 /// What the Ask page does with the text input: which prompt template (if any)
 /// wraps it before it is sent.
@@ -63,6 +63,7 @@ class _AskChatPageState extends State<AskChatPage> {
   /// ElevenLabs again.
   final _clipPlayer = ClipPlayer();
   final _tts = TextToSpeechService();
+  final _mistral = MistralChatService();
   String _listenText = "";
   bool _listenLoading = false;
   String? _listenError;
@@ -238,62 +239,30 @@ class _AskChatPageState extends State<AskChatPage> {
   }
 
   Stream<String> _askChat(String content) async* {
-    final key = await ApiKeyService.loadKey() ?? '';
-    final model = await ModelPreferenceService.loadModel();
-    final client = MistralAIClient(apiKey: key);
-
     final promptTemplate = _mode.promptTemplate;
-
-    var request = ChatCompletionRequest(
-      model: model,
-      temperature: 0,
-      messages: [
-        UserMessage(
-          content: UserMessageContent.string(
-            promptTemplate == null
-                ? content
-                : promptTemplate.replaceFirst(
-                    kTranslatePromptInputPlaceholder, content),
-          ),
-        ),
-      ],
-    );
-
-    final stream = client.chatStream(request: request);
-    await for (final completionChunk in stream) {
-      final chatMessage = completionChunk.choices[0].delta.content;
-      print(chatMessage);
-      yield chatMessage ?? ""; // or not yield...
-      await Future.delayed(Duration(milliseconds: 100));
-      // if (chatMessage != null) {
-      //   print(chatMessage);
-      // }
-    }
+    yield* _streamReply([
+      MistralMessage.user(
+        promptTemplate == null
+            ? content
+            : promptTemplate.replaceFirst(
+                kTranslatePromptInputPlaceholder, content),
+      ),
+    ]);
   }
 
-  Stream<String> _askChatExplain(String content) async* {
+  Stream<String> _askChatExplain(String content) => _streamReply([
+        MistralMessage.system(PromptRepository.explainPrompt),
+        MistralMessage.user(content),
+      ]);
+
+  Stream<String> _streamReply(List<MistralMessage> messages) async* {
     final key = await ApiKeyService.loadKey() ?? '';
     final model = await ModelPreferenceService.loadModel();
-    final client = MistralAIClient(apiKey: key);
-
-    var request = ChatCompletionRequest(
-      model: model,
-      temperature: 0,
-      messages: [
-        SystemMessage(content: Content.string(PromptRepository.explainPrompt)),
-        UserMessage(content: UserMessageContent.string(content)),
-      ],
-    );
-
-    final stream = client.chatStream(request: request);
-    await for (final completionChunk in stream) {
-      final chatMessage = completionChunk.choices[0].delta.content;
-      print(chatMessage);
-      yield chatMessage ?? ""; // or not yield...
-      await Future.delayed(Duration(milliseconds: 100));
-      // if (chatMessage != null) {
-      //   print(chatMessage);
-      // }
+    final stream =
+        _mistral.stream(apiKey: key, model: model, messages: messages);
+    await for (final chunk in stream) {
+      yield chunk;
+      await Future.delayed(const Duration(milliseconds: 100));
     }
   }
 
